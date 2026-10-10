@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
  * Headless balance sim: AI vs AI using the same engine as the browser game.
- * Usage: node sim.js [matches=2000] [target=<config default>] [mode=pooled|perHand]
+ * Usage: node sim.js [matches=2000] [target=<config default>] [mode=pooled|perHand] [noitems]
  */
 'use strict';
 const OF = require('./engine.js');
@@ -10,9 +10,10 @@ const N = +(process.argv[2] || 2000);
 const cfg = OF.defaultConfig();
 if (process.argv[3]) cfg.targetScore = +process.argv[3];
 if (process.argv[4]) cfg.scoringMode = process.argv[4];
+if (process.argv[5] === 'noitems') cfg.ai.usesItems = false;
 const rng = OF.makeRng(12345);
 
-let rounds = 0, ties = 0, p1 = 0;
+let rounds = 0, ties = 0, p1 = 0, items = 0;
 const burns = [];
 const roundsHist = {};
 for (let m = 0; m < N; m++) {
@@ -22,13 +23,9 @@ for (let m = 0; m < N; m++) {
     match.beginRound();
     // "player" seat is played by the same AI heuristic, deciding before it sees the other side
     const plan = OF.aiDecide(match, match.player, match.ai);
-    let turn;
-    if (plan.type === 'launch') turn = match.launch(match.player);
-    else {
-      const r = match.roll(match.player);
-      if (r.farkle) turn = match.farkle(match.player);
-      else turn = match.cache(match.player, OF.aiChooseCache(match, match.player, r.values).idx);
-    }
+    if (plan.type === 'roll') match.roll(match.player);
+    match.aiRollIfPlanned();
+    const turn = OF.executeAiPlan(match, match.player, plan);
     const res = match.resolveRound(turn);
     if (res.result === 'tie') ties++;
   }
@@ -36,6 +33,7 @@ for (let m = 0; m < N; m++) {
   roundsHist[match.round] = (roundsHist[match.round] || 0) + 1;
   if (match.winner === 'player') p1++;
   burns.push(...match.log.burns);
+  items += match.log.items.length;
 }
 const done = burns.filter(b => b.outcome !== 'matchEnd');
 const launched = done.filter(b => b.outcome === 'launch');
@@ -43,6 +41,7 @@ const avg = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
 const pct = x => (100 * x).toFixed(1) + '%';
 console.log(`target=${cfg.targetScore} mode=${cfg.scoringMode} matches=${N}`);
 console.log(`avg rounds/match: ${(rounds / N).toFixed(1)}   seat-1 win rate: ${pct(p1 / N)}   tie rounds: ${ties}`);
+console.log(`items used per match: ${(items / N).toFixed(2)}`);
 console.log(`burns: ${done.length}   farkle rate: ${pct(1 - launched.length / done.length)}`);
 console.log(`avg caches/burn: ${avg(done.map(b => b.caches)).toFixed(2)}   launched burns with 3+ caches: ${pct(launched.filter(b => b.caches >= 3).length / launched.length)}`);
 console.log(`avg launch: ${avg(launched.map(b => b.total)).toFixed(0)}   max launch: ${Math.max(...launched.map(b => b.total))}`);

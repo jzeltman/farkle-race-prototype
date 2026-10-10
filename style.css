@@ -238,3 +238,35 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
 .stat .fail { color: var(--bad); font-size: 12px; }
 .rules { font-size: 14px; line-height: 1.5; }
 .rules li { margin-bottom: 4px; }
+
+/* Consumables */
+.items { display: flex; flex-wrap: wrap; gap: 5px; }
+.item {
+  font-size: 12px; padding: 4px 8px; border-radius: 14px; display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg2); border: 1px solid var(--line); color: var(--text);
+}
+.item .ico { color: var(--accent); font-weight: 900; }
+.item b { color: var(--muted); font-weight: 600; }
+.item.none { opacity: 0.35; }
+button.item:not(:disabled) { border-color: var(--accent); }
+button.item.active { background: var(--accent); color: #241400; }
+button.item.active .ico, button.item.active b { color: #241400; }
+.padlist li.pick { cursor: pointer; outline: 1px dashed var(--chips); }
+.padlist li.pick:hover { background: #24407a; }
+.copied { font-size: 10px; color: var(--chips); border: 1px solid var(--chips); border-radius: 8px; padding: 0 4px; margin-left: 4px; }
+.t-item { color: var(--chips); }
+.card .used { color: var(--chips); font-size: 13px; margin-top: 6px; }
+
+.die.bonus { background: #d7e9ff; box-shadow: 0 4px 0 #8fb3dd, 0 6px 14px rgba(0, 0, 0, 0.4); border-color: var(--chips); }
+.die.bonus.sel { border-color: var(--sel); }
+.die.target { outline: 2px dashed var(--chips); outline-offset: 3px; cursor: crosshair; }
+.die.changed { animation: pop 0.4s ease-out; }
+@keyframes pop { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+.opptray { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; }
+.opptray .opplabel { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+.opptray .oppdice { display: flex; gap: 8px; flex-wrap: wrap; min-height: 40px; align-items: center; }
+.opptray .hint { color: var(--muted); font-size: 13px; }
+.die.mini { width: 40px; height: 40px; font-size: 20px; border-radius: 7px; box-shadow: 0 3px 0 #b8b2a2; border-width: 2px; cursor: default; }
+.die.mini.clickable { cursor: crosshair; }
+.die.mini.clickable:hover { transform: translateY(-2px); }

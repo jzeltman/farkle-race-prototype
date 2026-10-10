@@ -69,6 +69,13 @@
         leadingFactor: 0.65, // launch earlier when leading
         trailingMax: 1.8, // launch later when trailing (scaled by how far behind)
         jitter: 0.25, // +/- random spread per burn so the AI is not solvable
+        usesItems: true,
+      },
+      consumables: {
+        // Starting loadout, the same for both ships.
+        start: { nudgeUp: 1, nudgeDown: 1, reroll: 1, intercept: 1, copyDie: 1 },
+        earnOnHotDice: false, // hot dice grants one random consumable
+        maxEach: 3,
       },
     };
   }
@@ -237,7 +244,7 @@
         acc.pop();
         counts[f]++;
       }
-      for (let k = 2; k <= counts[f]; k++) {
+      for (let k = 2; k <= Math.min(counts[f], 6); k++) {
         counts[f] -= k;
         acc.push(makeHand(kinds[k], new Array(k).fill(f), cfg));
         recurse();
@@ -339,16 +346,42 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Consumables
+  // ---------------------------------------------------------------------------
+
+  const CONSUMABLE_DEFS = [
+    { id: 'nudgeUp', name: 'Nudge up', icon: '▲', kind: 'self', target: 'ownDie', desc: 'Raise one of your dice by 1 (6 wraps to 1).' },
+    { id: 'nudgeDown', name: 'Nudge down', icon: '▼', kind: 'self', target: 'ownDie', desc: 'Lower one of your dice by 1 (1 wraps to 6).' },
+    { id: 'reroll', name: 'Reroll', icon: '↻', kind: 'self', target: 'ownDie', desc: 'Reroll one of your dice.' },
+    { id: 'intercept', name: 'Intercept', icon: '⧉', kind: 'opponent', target: 'oppHand', desc: "Copy one hand from the opponent's pad onto yours. Theirs stays intact." },
+    { id: 'copyDie', name: 'Copy die', icon: '⎘', kind: 'opponent', target: 'oppDie', desc: "Copy one of the opponent's dice from this round's roll into your roll as a bonus die." },
+  ];
+  const CONSUMABLE_BY_ID = {};
+  CONSUMABLE_DEFS.forEach(function (c) {
+    CONSUMABLE_BY_ID[c.id] = c;
+  });
+  // Items that can turn a farkle into a scoring roll.
+  const RESCUE_ITEMS = ['nudgeUp', 'nudgeDown', 'reroll', 'copyDie'];
+
+  function wrapDie(v) {
+    return ((v - 1 + 6) % 6) + 1;
+  }
+
+  // ---------------------------------------------------------------------------
   // Match
   // ---------------------------------------------------------------------------
 
-  function newSide(id) {
+  function newSide(id, cfg) {
     return {
       id: id,
       banked: 0,
       pad: [],
       available: 6,
-      dice: [], // current roll values
+      dice: [], // current roll values (may include bonus dice)
+      bonus: [], // bonus[i] true when dice[i] was copied from the opponent
+      rolled: null, // this round's roll as rolled, before any items (visible to the opponent)
+      items: [], // consumables used this turn
+      inventory: Object.assign({}, cfg.consumables.start),
       burn: null, // active burn info for logging
       lastTurn: null,
     };
@@ -359,14 +392,14 @@
     this.cfg = cfg;
     this.rng = opts.rng || Math.random;
     this.round = 0;
-    this.player = newSide('player');
-    this.ai = newSide('ai');
+    this.player = newSide('player', cfg);
+    this.ai = newSide('ai', cfg);
     this.over = false;
     this.winner = null;
     this.overtime = false;
     this.aiPlan = null;
-    this.playerTurn = null;
-    this.log = { burns: [], rounds: [], startedAt: Date.now() };
+    this.padAtRoundStart = { player: [], ai: [] };
+    this.log = { burns: [], rounds: [], items: [], startedAt: Date.now() };
   }
 
   Match.prototype.other = function (side) {
@@ -383,7 +416,14 @@
 
   Match.prototype.beginRound = function () {
     this.round++;
-    this.playerTurn = null;
+    [this.player, this.ai].forEach(function (s) {
+      s.items = [];
+      s.rolled = null;
+      s.dice = [];
+      s.bonus = [];
+    });
+    // Intercept copies from the opponent's pad as it stood when the round began.
+    this.padAtRoundStart = { player: this.player.pad.slice(), ai: this.ai.pad.slice() };
     // The AI commits before it sees anything the player does this round.
     this.aiPlan = aiDecide(this, this.ai, this.player);
   };
@@ -397,6 +437,7 @@
         caches: 0,
         rolls: 0,
         hotDice: 0,
+        items: 0,
         diffAtStart: side.banked - o.banked,
         jitter: 1 + (this.rng() * 2 - 1) * this.cfg.ai.jitter,
       };
@@ -407,7 +448,81 @@
   Match.prototype.roll = function (side) {
     this.ensureBurn(side).rolls++;
     side.dice = rollDice(side.available, this.rng);
+    side.bonus = side.dice.map(function () { return false; });
+    side.rolled = side.dice.slice();
     return { values: side.dice.slice(), farkle: !hasScoring(side.dice) };
+  };
+
+  Match.prototype.isFarkle = function (side) {
+    return !hasScoring(side.dice);
+  };
+
+  /** Number of live (non-bonus) dice among the given indices. */
+  Match.prototype.liveCount = function (side, idx) {
+    return idx.filter(function (i) { return !side.bonus[i]; }).length;
+  };
+
+  // --- consumable use. Each returns a description object, or null if not allowed. ---
+
+  Match.prototype.canUse = function (side, id) {
+    if (!(side.inventory[id] > 0)) return false;
+    const opp = this.other(side);
+    if (id === 'intercept') return this.padAtRoundStart[opp.id].length > 0;
+    if (id === 'copyDie') return side.dice.length > 0 && !!opp.rolled && opp.rolled.length > 0;
+    return side.dice.length > 0; // nudges and reroll need a roll in front of you
+  };
+
+  Match.prototype.spend = function (side, id, detail) {
+    side.inventory[id]--;
+    const rec = Object.assign({ id: id, name: CONSUMABLE_BY_ID[id].name, icon: CONSUMABLE_BY_ID[id].icon }, detail);
+    side.items.push(rec);
+    this.ensureBurn(side).items++;
+    this.log.items.push(Object.assign({ side: side.id, round: this.round }, rec));
+    return rec;
+  };
+
+  Match.prototype.useNudge = function (side, i, dir) {
+    const id = dir > 0 ? 'nudgeUp' : 'nudgeDown';
+    if (!this.canUse(side, id) || i < 0 || i >= side.dice.length) return null;
+    const from = side.dice[i];
+    side.dice[i] = wrapDie(from + dir);
+    return this.spend(side, id, { from: from, to: side.dice[i], text: from + ' → ' + side.dice[i] });
+  };
+
+  Match.prototype.useReroll = function (side, i) {
+    if (!this.canUse(side, 'reroll') || i < 0 || i >= side.dice.length) return null;
+    const from = side.dice[i];
+    side.dice[i] = rollDice(1, this.rng)[0];
+    return this.spend(side, 'reroll', { from: from, to: side.dice[i], text: from + ' → ' + side.dice[i] });
+  };
+
+  Match.prototype.useCopyDie = function (side, oppIdx) {
+    const opp = this.other(side);
+    if (!this.canUse(side, 'copyDie') || oppIdx < 0 || oppIdx >= opp.rolled.length) return null;
+    const v = opp.rolled[oppIdx];
+    side.dice.push(v);
+    side.bonus.push(true);
+    return this.spend(side, 'copyDie', { value: v, text: 'copied a ' + v });
+  };
+
+  Match.prototype.useIntercept = function (side, handIdx) {
+    const opp = this.other(side);
+    const src = this.padAtRoundStart[opp.id];
+    if (!this.canUse(side, 'intercept') || handIdx < 0 || handIdx >= src.length) return null;
+    const h = Object.assign({}, src[handIdx], { copied: true });
+    side.pad = side.pad.concat([h]);
+    return this.spend(side, 'intercept', { hand: h.label, text: 'copied ' + h.label });
+  };
+
+  Match.prototype.grantRandomItem = function (side) {
+    const max = this.cfg.consumables.maxEach;
+    const ids = CONSUMABLE_DEFS.map(function (c) { return c.id; }).filter(function (id) {
+      return (side.inventory[id] || 0) < max;
+    });
+    if (!ids.length) return null;
+    const id = ids[Math.floor(this.rng() * ids.length)];
+    side.inventory[id] = (side.inventory[id] || 0) + 1;
+    return id;
   };
 
   /** Cache the dice at the given indices of the current roll. Returns the turn record or null if invalid. */
@@ -417,30 +532,37 @@
     });
     const hands = decompose(vals, this.cfg);
     if (!hands) return null;
-    const roll = side.dice.slice();
+    const roll = side.rolled ? side.rolled.slice() : side.dice.slice();
+    const finalDice = side.dice.slice();
     side.pad = side.pad.concat(hands);
-    side.available -= idx.length;
+    // Bonus (copied) dice don't come out of your live dice.
+    side.available -= this.liveCount(side, idx);
     const burn = this.ensureBurn(side);
     burn.caches++;
     let hot = false;
+    let earned = null;
     if (side.available === 0 && this.cfg.hotDice) {
       side.available = 6;
       burn.hotDice++;
       hot = true;
+      if (this.cfg.consumables.earnOnHotDice) earned = this.grantRandomItem(side);
     }
     side.dice = [];
-    return { type: 'cache', roll: roll, kept: idx.slice(), hands: hands, hot: hot, diceLeft: side.available };
+    side.bonus = [];
+    return { type: 'cache', roll: roll, finalDice: finalDice, kept: idx.slice(), hands: hands, hot: hot, earned: earned, diceLeft: side.available };
   };
 
   Match.prototype.farkle = function (side) {
     const lost = resolvePad(side.pad, this.cfg);
     const handsLost = side.pad.slice();
-    const roll = side.dice.slice();
+    const roll = side.rolled ? side.rolled.slice() : side.dice.slice();
+    const finalDice = side.dice.slice();
     this.endBurn(side, 'farkle', lost.total);
     side.pad = [];
     side.available = 6;
     side.dice = [];
-    return { type: 'farkle', roll: roll, lost: lost, handsLost: handsLost };
+    side.bonus = [];
+    return { type: 'farkle', roll: roll, finalDice: finalDice, lost: lost, handsLost: handsLost };
   };
 
   Match.prototype.launch = function (side) {
@@ -452,6 +574,7 @@
     side.pad = [];
     side.available = 6;
     side.dice = [];
+    side.bonus = [];
     return { type: 'launch', resolution: res, hands: hands, before: before, after: side.banked };
   };
 
@@ -468,10 +591,19 @@
     side.burn = null;
   };
 
-  /** Player commits a full turn. turn = { type:'cache', idx:[...] } | { type:'farkle' } | { type:'launch' }. */
+  /**
+   * Roll for the AI now if it committed to rolling. Called when the player rolls so both
+   * rolls are revealed together and each side can see (and copy from) the other's dice.
+   */
+  Match.prototype.aiRollIfPlanned = function () {
+    if (this.aiPlan && this.aiPlan.type === 'roll' && !this.ai.rolled) this.roll(this.ai);
+  };
+
+  /** Player commits a full turn (a record from cache(), farkle() or launch()). */
   Match.prototype.resolveRound = function (playerTurnRecord) {
     const aiTurn = executeAiPlan(this, this.ai, this.aiPlan);
     const pTurn = playerTurnRecord;
+    pTurn.items = this.player.items.slice();
     this.player.lastTurn = pTurn;
     this.ai.lastTurn = aiTurn;
 
@@ -512,10 +644,15 @@
 
   function summarizeTurn(t) {
     if (!t) return null;
-    if (t.type === 'cache') return { type: 'cache', hands: t.hands.map(function (h) { return h.label; }), hot: t.hot };
-    if (t.type === 'farkle') return { type: 'farkle', lost: t.lost.total };
-    if (t.type === 'launch') return { type: 'launch', total: t.resolution.total };
-    return t;
+    const items = (t.items || []).map(function (i) { return i.name + ' (' + i.text + ')'; });
+    let s;
+    if (t.type === 'cache') s = { type: 'cache', roll: t.roll, hands: t.hands.map(function (h) { return h.label; }), hot: t.hot };
+    else if (t.type === 'farkle') s = { type: 'farkle', roll: t.roll, lost: t.lost.total };
+    else if (t.type === 'launch') s = { type: 'launch', total: t.resolution.total };
+    else s = { type: t.type };
+    s.items = items;
+    s.reason = t.reason;
+    return s;
   }
 
   // ---------------------------------------------------------------------------
@@ -539,8 +676,10 @@
     const oppGauge = gaugeTier(match.padTotal(opp), opp.pad.length, cfg);
     if (opp.banked >= cfg.targetScore * 0.6 && oppGauge.tier >= Math.ceil(cfg.gaugeTiers * 0.6)) threshold *= 0.8;
 
-    // Few dice left means a high farkle chance on the next roll.
-    const risk = farkleChance(me.available);
+    // Few dice left means a high farkle chance on the next roll. Rescue items soften that.
+    let risk = farkleChance(me.available);
+    const rescues = (me.inventory.nudgeUp || 0) + (me.inventory.nudgeDown || 0) + (me.inventory.reroll || 0);
+    if (cfg.ai.usesItems && rescues > 0) risk *= 0.5;
     if (risk >= 0.5) threshold *= 0.45;
     else if (risk >= 0.25) threshold *= 0.65;
     else if (risk >= 0.1) threshold *= 0.85;
@@ -551,52 +690,165 @@
     return { type: 'roll', reason: lead < 0 ? 'Trailing: pressing on' : 'Building thrust' };
   }
 
-  function aiChooseCache(match, me, values) {
+  /**
+   * Pick the AI's cache from a roll. values/bonus describe the dice; live = live dice count this roll.
+   * Returns { opt, score, hot } or null if nothing scores.
+   */
+  function aiEvalCache(match, me, values, bonus) {
     const cfg = match.cfg;
     const opts = cacheOptions(values, cfg);
     if (!opts.length) return null;
-    const n = values.length;
-    const cur = resolvePad(me.pad, cfg);
+    const live = me.available;
+    const cur = resolvePad(me.pad, cfg).total;
+    function liveUsed(o) {
+      return o.idx.filter(function (i) { return !bonus[i]; }).length;
+    }
     function gain(o) {
-      return resolvePad(me.pad.concat(o.hands), cfg).total - cur.total;
+      return resolvePad(me.pad.concat(o.hands), cfg).total - cur;
     }
     // Hot dice whenever possible: it resets to six dice.
-    const all = opts.filter(function (o) {
-      return o.idx.length === n;
-    });
-    if (all.length && cfg.hotDice) return all[0];
+    if (cfg.hotDice) {
+      let hotBest = null;
+      opts.forEach(function (o) {
+        if (liveUsed(o) === live) {
+          const g = gain(o);
+          if (!hotBest || g > hotBest.score) hotBest = { opt: o, score: g, hot: true };
+        }
+      });
+      if (hotBest) {
+        hotBest.score += cfg.targetScore * 0.08; // six fresh dice are worth a lot
+        return hotBest;
+      }
+    }
     // Otherwise prefer keeping at least 3 dice live, taking the best gain; if impossible take everything we can.
     const keep3 = opts.filter(function (o) {
-      return n - o.idx.length >= 3;
+      return live - liveUsed(o) >= 3;
     });
     const pool = keep3.length ? keep3 : opts;
     let best = null;
-    let bestScore = -Infinity;
     pool.forEach(function (o) {
-      // value gain, minus a small cost for each die spent (dice are future rolls)
-      const s = gain(o) - (keep3.length ? o.idx.length * cfg.targetScore * 0.004 : -o.idx.length);
-      if (s > bestScore) {
-        bestScore = s;
-        best = o;
-      }
+      // value gain, minus a small cost for each live die spent (dice are future rolls)
+      const used = liveUsed(o);
+      const s = gain(o) - (keep3.length ? used * cfg.targetScore * 0.004 : -used);
+      if (!best || s > best.score) best = { opt: o, score: s, hot: false };
     });
     return best;
   }
 
+  function aiChooseCache(match, me, values) {
+    const bonus = me.bonus && me.bonus.length === values.length ? me.bonus : values.map(function () { return false; });
+    const r = aiEvalCache(match, me, values, bonus);
+    return r ? r.opt : null;
+  }
+
+  /**
+   * Candidate deterministic item uses on the current roll: nudges on each die and copying each opponent die.
+   * Each candidate is { id, arg, dice, bonus }.
+   */
+  function aiItemCandidates(match, me) {
+    const out = [];
+    const opp = match.other(me);
+    [['nudgeUp', 1], ['nudgeDown', -1]].forEach(function (pair) {
+      if (!(me.inventory[pair[0]] > 0)) return;
+      me.dice.forEach(function (v, i) {
+        const d = me.dice.slice();
+        d[i] = wrapDie(v + pair[1]);
+        out.push({ id: pair[0], arg: i, dice: d, bonus: me.bonus.slice() });
+      });
+    });
+    if (me.inventory.copyDie > 0 && opp.rolled && opp.rolled.length) {
+      const seen = {};
+      opp.rolled.forEach(function (v, j) {
+        if (seen[v]) return;
+        seen[v] = true;
+        out.push({ id: 'copyDie', arg: j, dice: me.dice.concat([v]), bonus: me.bonus.concat([true]) });
+      });
+    }
+    return out;
+  }
+
+  function aiApply(match, me, c) {
+    if (c.id === 'nudgeUp') return match.useNudge(me, c.arg, 1);
+    if (c.id === 'nudgeDown') return match.useNudge(me, c.arg, -1);
+    if (c.id === 'copyDie') return match.useCopyDie(me, c.arg);
+    if (c.id === 'reroll') return match.useReroll(me, c.arg);
+    return null;
+  }
+
+  /** Try to turn a farkle into a scoring roll. Prefers sure things (nudge, copy) over a reroll gamble. */
+  function aiRescue(match, me) {
+    let best = null;
+    aiItemCandidates(match, me).forEach(function (c) {
+      const r = aiEvalCache(match, me, c.dice, c.bonus);
+      if (r && (!best || r.score > best.score)) best = { c: c, score: r.score };
+    });
+    if (best) {
+      aiApply(match, me, best.c);
+      return true;
+    }
+    // Gamble with rerolls while we have them.
+    while (me.inventory.reroll > 0 && match.isFarkle(me)) {
+      match.useReroll(me, Math.floor(match.rng() * me.dice.length));
+    }
+    return !match.isFarkle(me);
+  }
+
+  /** Spend at most one item to improve a good roll, but only when it is clearly worth it. */
+  function aiImprove(match, me) {
+    const base = aiEvalCache(match, me, me.dice, me.bonus);
+    if (!base) return;
+    // Nudges are saved for farkle rescues unless the AI holds a spare of that kind.
+    let best = null;
+    aiItemCandidates(match, me).forEach(function (c) {
+      if (c.id !== 'copyDie' && me.inventory[c.id] < 2) return;
+      const r = aiEvalCache(match, me, c.dice, c.bonus);
+      if (!r) return;
+      const lift = r.score - base.score;
+      const worth = (r.hot && !base.hot) || lift >= Math.max(match.cfg.targetScore * 0.03, Math.abs(base.score) * 0.6);
+      if (worth && (!best || lift > best.lift)) best = { c: c, lift: lift };
+    });
+    if (best) aiApply(match, me, best.c);
+  }
+
+  /** Copy the best hand from the opponent's pad when it is big, or when trailing. */
+  function aiMaybeIntercept(match, me) {
+    if (!match.canUse(me, 'intercept')) return;
+    const opp = match.other(me);
+    const src = match.padAtRoundStart[opp.id];
+    let bestI = -1;
+    let bestGain = 0;
+    const cur = resolvePad(me.pad, match.cfg).total;
+    src.forEach(function (h, i) {
+      const g = resolvePad(me.pad.concat([h]), match.cfg).total - cur;
+      if (g > bestGain) {
+        bestGain = g;
+        bestI = i;
+      }
+    });
+    const trailing = me.banked < opp.banked;
+    const big = src[bestI] && src[bestI].chips * src[bestI].mult >= (trailing ? 45 : 90);
+    if (bestI >= 0 && big) match.useIntercept(me, bestI);
+  }
+
   function executeAiPlan(match, me, plan) {
+    const useItems = match.cfg.ai.usesItems;
     let turn;
+    if (useItems) aiMaybeIntercept(match, me);
     if (plan.type === 'launch') {
       turn = match.launch(me);
     } else {
-      const r = match.roll(me);
-      if (r.farkle) {
+      if (!me.rolled) match.roll(me);
+      if (match.isFarkle(me) && useItems) aiRescue(match, me);
+      if (match.isFarkle(me)) {
         turn = match.farkle(me);
       } else {
-        const choice = aiChooseCache(match, me, r.values);
-        turn = match.cache(me, choice.idx);
+        if (useItems) aiImprove(match, me);
+        const r = aiEvalCache(match, me, me.dice, me.bonus);
+        turn = match.cache(me, r.opt.idx);
       }
     }
     turn.reason = plan.reason;
+    turn.items = me.items.slice();
     return turn;
   }
 
@@ -605,6 +857,8 @@
   const api = {
     HAND_DEFS: HAND_DEFS,
     HAND_DICE_TEXT: HAND_DICE_TEXT,
+    CONSUMABLE_DEFS: CONSUMABLE_DEFS,
+    RESCUE_ITEMS: RESCUE_ITEMS,
     defaultConfig: defaultConfig,
     mergeConfig: mergeConfig,
     makeRng: makeRng,
@@ -620,6 +874,7 @@
     Match: Match,
     aiDecide: aiDecide,
     aiChooseCache: aiChooseCache,
+    executeAiPlan: executeAiPlan,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -245,6 +245,38 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
 .stat .fail { color: var(--bad); font-size: 12px; }
 .rules { font-size: 14px; line-height: 1.5; }
 .rules li { margin-bottom: 4px; }
+
+/* Consumables */
+.items { display: flex; flex-wrap: wrap; gap: 5px; }
+.item {
+  font-size: 12px; padding: 4px 8px; border-radius: 14px; display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg2); border: 1px solid var(--line); color: var(--text);
+}
+.item .ico { color: var(--accent); font-weight: 900; }
+.item b { color: var(--muted); font-weight: 600; }
+.item.none { opacity: 0.35; }
+button.item:not(:disabled) { border-color: var(--accent); }
+button.item.active { background: var(--accent); color: #241400; }
+button.item.active .ico, button.item.active b { color: #241400; }
+.padlist li.pick { cursor: pointer; outline: 1px dashed var(--chips); }
+.padlist li.pick:hover { background: #24407a; }
+.copied { font-size: 10px; color: var(--chips); border: 1px solid var(--chips); border-radius: 8px; padding: 0 4px; margin-left: 4px; }
+.t-item { color: var(--chips); }
+.card .used { color: var(--chips); font-size: 13px; margin-top: 6px; }
+
+.die.bonus { background: #d7e9ff; box-shadow: 0 4px 0 #8fb3dd, 0 6px 14px rgba(0, 0, 0, 0.4); border-color: var(--chips); }
+.die.bonus.sel { border-color: var(--sel); }
+.die.target { outline: 2px dashed var(--chips); outline-offset: 3px; cursor: crosshair; }
+.die.changed { animation: pop 0.4s ease-out; }
+@keyframes pop { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+.opptray { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; }
+.opptray .opplabel { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+.opptray .oppdice { display: flex; gap: 8px; flex-wrap: wrap; min-height: 40px; align-items: center; }
+.opptray .hint { color: var(--muted); font-size: 13px; }
+.die.mini { width: 40px; height: 40px; font-size: 20px; border-radius: 7px; box-shadow: 0 3px 0 #b8b2a2; border-width: 2px; cursor: default; }
+.die.mini.clickable { cursor: crosshair; }
+.die.mini.clickable:hover { transform: translateY(-2px); }
 </style>
 </head>
 <body>
@@ -273,6 +305,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       <div class="selinfo" id="selinfo"></div>
       <div class="actions" id="actions"></div>
       <div class="risk" id="risk"></div>
+      <div class="opptray" id="opptray"></div>
     </section>
 
     <section class="panel ship" id="side-ai"></section>
@@ -370,6 +403,13 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
         leadingFactor: 0.65, // launch earlier when leading
         trailingMax: 1.8, // launch later when trailing (scaled by how far behind)
         jitter: 0.25, // +/- random spread per burn so the AI is not solvable
+        usesItems: true,
+      },
+      consumables: {
+        // Starting loadout, the same for both ships.
+        start: { nudgeUp: 1, nudgeDown: 1, reroll: 1, intercept: 1, copyDie: 1 },
+        earnOnHotDice: false, // hot dice grants one random consumable
+        maxEach: 3,
       },
     };
   }
@@ -538,7 +578,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
         acc.pop();
         counts[f]++;
       }
-      for (let k = 2; k <= counts[f]; k++) {
+      for (let k = 2; k <= Math.min(counts[f], 6); k++) {
         counts[f] -= k;
         acc.push(makeHand(kinds[k], new Array(k).fill(f), cfg));
         recurse();
@@ -640,16 +680,42 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
   }
 
   // ---------------------------------------------------------------------------
+  // Consumables
+  // ---------------------------------------------------------------------------
+
+  const CONSUMABLE_DEFS = [
+    { id: 'nudgeUp', name: 'Nudge up', icon: '▲', kind: 'self', target: 'ownDie', desc: 'Raise one of your dice by 1 (6 wraps to 1).' },
+    { id: 'nudgeDown', name: 'Nudge down', icon: '▼', kind: 'self', target: 'ownDie', desc: 'Lower one of your dice by 1 (1 wraps to 6).' },
+    { id: 'reroll', name: 'Reroll', icon: '↻', kind: 'self', target: 'ownDie', desc: 'Reroll one of your dice.' },
+    { id: 'intercept', name: 'Intercept', icon: '⧉', kind: 'opponent', target: 'oppHand', desc: "Copy one hand from the opponent's pad onto yours. Theirs stays intact." },
+    { id: 'copyDie', name: 'Copy die', icon: '⎘', kind: 'opponent', target: 'oppDie', desc: "Copy one of the opponent's dice from this round's roll into your roll as a bonus die." },
+  ];
+  const CONSUMABLE_BY_ID = {};
+  CONSUMABLE_DEFS.forEach(function (c) {
+    CONSUMABLE_BY_ID[c.id] = c;
+  });
+  // Items that can turn a farkle into a scoring roll.
+  const RESCUE_ITEMS = ['nudgeUp', 'nudgeDown', 'reroll', 'copyDie'];
+
+  function wrapDie(v) {
+    return ((v - 1 + 6) % 6) + 1;
+  }
+
+  // ---------------------------------------------------------------------------
   // Match
   // ---------------------------------------------------------------------------
 
-  function newSide(id) {
+  function newSide(id, cfg) {
     return {
       id: id,
       banked: 0,
       pad: [],
       available: 6,
-      dice: [], // current roll values
+      dice: [], // current roll values (may include bonus dice)
+      bonus: [], // bonus[i] true when dice[i] was copied from the opponent
+      rolled: null, // this round's roll as rolled, before any items (visible to the opponent)
+      items: [], // consumables used this turn
+      inventory: Object.assign({}, cfg.consumables.start),
       burn: null, // active burn info for logging
       lastTurn: null,
     };
@@ -660,14 +726,14 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     this.cfg = cfg;
     this.rng = opts.rng || Math.random;
     this.round = 0;
-    this.player = newSide('player');
-    this.ai = newSide('ai');
+    this.player = newSide('player', cfg);
+    this.ai = newSide('ai', cfg);
     this.over = false;
     this.winner = null;
     this.overtime = false;
     this.aiPlan = null;
-    this.playerTurn = null;
-    this.log = { burns: [], rounds: [], startedAt: Date.now() };
+    this.padAtRoundStart = { player: [], ai: [] };
+    this.log = { burns: [], rounds: [], items: [], startedAt: Date.now() };
   }
 
   Match.prototype.other = function (side) {
@@ -684,7 +750,14 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
 
   Match.prototype.beginRound = function () {
     this.round++;
-    this.playerTurn = null;
+    [this.player, this.ai].forEach(function (s) {
+      s.items = [];
+      s.rolled = null;
+      s.dice = [];
+      s.bonus = [];
+    });
+    // Intercept copies from the opponent's pad as it stood when the round began.
+    this.padAtRoundStart = { player: this.player.pad.slice(), ai: this.ai.pad.slice() };
     // The AI commits before it sees anything the player does this round.
     this.aiPlan = aiDecide(this, this.ai, this.player);
   };
@@ -698,6 +771,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
         caches: 0,
         rolls: 0,
         hotDice: 0,
+        items: 0,
         diffAtStart: side.banked - o.banked,
         jitter: 1 + (this.rng() * 2 - 1) * this.cfg.ai.jitter,
       };
@@ -708,7 +782,81 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
   Match.prototype.roll = function (side) {
     this.ensureBurn(side).rolls++;
     side.dice = rollDice(side.available, this.rng);
+    side.bonus = side.dice.map(function () { return false; });
+    side.rolled = side.dice.slice();
     return { values: side.dice.slice(), farkle: !hasScoring(side.dice) };
+  };
+
+  Match.prototype.isFarkle = function (side) {
+    return !hasScoring(side.dice);
+  };
+
+  /** Number of live (non-bonus) dice among the given indices. */
+  Match.prototype.liveCount = function (side, idx) {
+    return idx.filter(function (i) { return !side.bonus[i]; }).length;
+  };
+
+  // --- consumable use. Each returns a description object, or null if not allowed. ---
+
+  Match.prototype.canUse = function (side, id) {
+    if (!(side.inventory[id] > 0)) return false;
+    const opp = this.other(side);
+    if (id === 'intercept') return this.padAtRoundStart[opp.id].length > 0;
+    if (id === 'copyDie') return side.dice.length > 0 && !!opp.rolled && opp.rolled.length > 0;
+    return side.dice.length > 0; // nudges and reroll need a roll in front of you
+  };
+
+  Match.prototype.spend = function (side, id, detail) {
+    side.inventory[id]--;
+    const rec = Object.assign({ id: id, name: CONSUMABLE_BY_ID[id].name, icon: CONSUMABLE_BY_ID[id].icon }, detail);
+    side.items.push(rec);
+    this.ensureBurn(side).items++;
+    this.log.items.push(Object.assign({ side: side.id, round: this.round }, rec));
+    return rec;
+  };
+
+  Match.prototype.useNudge = function (side, i, dir) {
+    const id = dir > 0 ? 'nudgeUp' : 'nudgeDown';
+    if (!this.canUse(side, id) || i < 0 || i >= side.dice.length) return null;
+    const from = side.dice[i];
+    side.dice[i] = wrapDie(from + dir);
+    return this.spend(side, id, { from: from, to: side.dice[i], text: from + ' → ' + side.dice[i] });
+  };
+
+  Match.prototype.useReroll = function (side, i) {
+    if (!this.canUse(side, 'reroll') || i < 0 || i >= side.dice.length) return null;
+    const from = side.dice[i];
+    side.dice[i] = rollDice(1, this.rng)[0];
+    return this.spend(side, 'reroll', { from: from, to: side.dice[i], text: from + ' → ' + side.dice[i] });
+  };
+
+  Match.prototype.useCopyDie = function (side, oppIdx) {
+    const opp = this.other(side);
+    if (!this.canUse(side, 'copyDie') || oppIdx < 0 || oppIdx >= opp.rolled.length) return null;
+    const v = opp.rolled[oppIdx];
+    side.dice.push(v);
+    side.bonus.push(true);
+    return this.spend(side, 'copyDie', { value: v, text: 'copied a ' + v });
+  };
+
+  Match.prototype.useIntercept = function (side, handIdx) {
+    const opp = this.other(side);
+    const src = this.padAtRoundStart[opp.id];
+    if (!this.canUse(side, 'intercept') || handIdx < 0 || handIdx >= src.length) return null;
+    const h = Object.assign({}, src[handIdx], { copied: true });
+    side.pad = side.pad.concat([h]);
+    return this.spend(side, 'intercept', { hand: h.label, text: 'copied ' + h.label });
+  };
+
+  Match.prototype.grantRandomItem = function (side) {
+    const max = this.cfg.consumables.maxEach;
+    const ids = CONSUMABLE_DEFS.map(function (c) { return c.id; }).filter(function (id) {
+      return (side.inventory[id] || 0) < max;
+    });
+    if (!ids.length) return null;
+    const id = ids[Math.floor(this.rng() * ids.length)];
+    side.inventory[id] = (side.inventory[id] || 0) + 1;
+    return id;
   };
 
   /** Cache the dice at the given indices of the current roll. Returns the turn record or null if invalid. */
@@ -718,30 +866,37 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     });
     const hands = decompose(vals, this.cfg);
     if (!hands) return null;
-    const roll = side.dice.slice();
+    const roll = side.rolled ? side.rolled.slice() : side.dice.slice();
+    const finalDice = side.dice.slice();
     side.pad = side.pad.concat(hands);
-    side.available -= idx.length;
+    // Bonus (copied) dice don't come out of your live dice.
+    side.available -= this.liveCount(side, idx);
     const burn = this.ensureBurn(side);
     burn.caches++;
     let hot = false;
+    let earned = null;
     if (side.available === 0 && this.cfg.hotDice) {
       side.available = 6;
       burn.hotDice++;
       hot = true;
+      if (this.cfg.consumables.earnOnHotDice) earned = this.grantRandomItem(side);
     }
     side.dice = [];
-    return { type: 'cache', roll: roll, kept: idx.slice(), hands: hands, hot: hot, diceLeft: side.available };
+    side.bonus = [];
+    return { type: 'cache', roll: roll, finalDice: finalDice, kept: idx.slice(), hands: hands, hot: hot, earned: earned, diceLeft: side.available };
   };
 
   Match.prototype.farkle = function (side) {
     const lost = resolvePad(side.pad, this.cfg);
     const handsLost = side.pad.slice();
-    const roll = side.dice.slice();
+    const roll = side.rolled ? side.rolled.slice() : side.dice.slice();
+    const finalDice = side.dice.slice();
     this.endBurn(side, 'farkle', lost.total);
     side.pad = [];
     side.available = 6;
     side.dice = [];
-    return { type: 'farkle', roll: roll, lost: lost, handsLost: handsLost };
+    side.bonus = [];
+    return { type: 'farkle', roll: roll, finalDice: finalDice, lost: lost, handsLost: handsLost };
   };
 
   Match.prototype.launch = function (side) {
@@ -753,6 +908,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     side.pad = [];
     side.available = 6;
     side.dice = [];
+    side.bonus = [];
     return { type: 'launch', resolution: res, hands: hands, before: before, after: side.banked };
   };
 
@@ -769,10 +925,19 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     side.burn = null;
   };
 
-  /** Player commits a full turn. turn = { type:'cache', idx:[...] } | { type:'farkle' } | { type:'launch' }. */
+  /**
+   * Roll for the AI now if it committed to rolling. Called when the player rolls so both
+   * rolls are revealed together and each side can see (and copy from) the other's dice.
+   */
+  Match.prototype.aiRollIfPlanned = function () {
+    if (this.aiPlan && this.aiPlan.type === 'roll' && !this.ai.rolled) this.roll(this.ai);
+  };
+
+  /** Player commits a full turn (a record from cache(), farkle() or launch()). */
   Match.prototype.resolveRound = function (playerTurnRecord) {
     const aiTurn = executeAiPlan(this, this.ai, this.aiPlan);
     const pTurn = playerTurnRecord;
+    pTurn.items = this.player.items.slice();
     this.player.lastTurn = pTurn;
     this.ai.lastTurn = aiTurn;
 
@@ -813,10 +978,15 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
 
   function summarizeTurn(t) {
     if (!t) return null;
-    if (t.type === 'cache') return { type: 'cache', hands: t.hands.map(function (h) { return h.label; }), hot: t.hot };
-    if (t.type === 'farkle') return { type: 'farkle', lost: t.lost.total };
-    if (t.type === 'launch') return { type: 'launch', total: t.resolution.total };
-    return t;
+    const items = (t.items || []).map(function (i) { return i.name + ' (' + i.text + ')'; });
+    let s;
+    if (t.type === 'cache') s = { type: 'cache', roll: t.roll, hands: t.hands.map(function (h) { return h.label; }), hot: t.hot };
+    else if (t.type === 'farkle') s = { type: 'farkle', roll: t.roll, lost: t.lost.total };
+    else if (t.type === 'launch') s = { type: 'launch', total: t.resolution.total };
+    else s = { type: t.type };
+    s.items = items;
+    s.reason = t.reason;
+    return s;
   }
 
   // ---------------------------------------------------------------------------
@@ -840,8 +1010,10 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     const oppGauge = gaugeTier(match.padTotal(opp), opp.pad.length, cfg);
     if (opp.banked >= cfg.targetScore * 0.6 && oppGauge.tier >= Math.ceil(cfg.gaugeTiers * 0.6)) threshold *= 0.8;
 
-    // Few dice left means a high farkle chance on the next roll.
-    const risk = farkleChance(me.available);
+    // Few dice left means a high farkle chance on the next roll. Rescue items soften that.
+    let risk = farkleChance(me.available);
+    const rescues = (me.inventory.nudgeUp || 0) + (me.inventory.nudgeDown || 0) + (me.inventory.reroll || 0);
+    if (cfg.ai.usesItems && rescues > 0) risk *= 0.5;
     if (risk >= 0.5) threshold *= 0.45;
     else if (risk >= 0.25) threshold *= 0.65;
     else if (risk >= 0.1) threshold *= 0.85;
@@ -852,52 +1024,165 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     return { type: 'roll', reason: lead < 0 ? 'Trailing: pressing on' : 'Building thrust' };
   }
 
-  function aiChooseCache(match, me, values) {
+  /**
+   * Pick the AI's cache from a roll. values/bonus describe the dice; live = live dice count this roll.
+   * Returns { opt, score, hot } or null if nothing scores.
+   */
+  function aiEvalCache(match, me, values, bonus) {
     const cfg = match.cfg;
     const opts = cacheOptions(values, cfg);
     if (!opts.length) return null;
-    const n = values.length;
-    const cur = resolvePad(me.pad, cfg);
+    const live = me.available;
+    const cur = resolvePad(me.pad, cfg).total;
+    function liveUsed(o) {
+      return o.idx.filter(function (i) { return !bonus[i]; }).length;
+    }
     function gain(o) {
-      return resolvePad(me.pad.concat(o.hands), cfg).total - cur.total;
+      return resolvePad(me.pad.concat(o.hands), cfg).total - cur;
     }
     // Hot dice whenever possible: it resets to six dice.
-    const all = opts.filter(function (o) {
-      return o.idx.length === n;
-    });
-    if (all.length && cfg.hotDice) return all[0];
+    if (cfg.hotDice) {
+      let hotBest = null;
+      opts.forEach(function (o) {
+        if (liveUsed(o) === live) {
+          const g = gain(o);
+          if (!hotBest || g > hotBest.score) hotBest = { opt: o, score: g, hot: true };
+        }
+      });
+      if (hotBest) {
+        hotBest.score += cfg.targetScore * 0.08; // six fresh dice are worth a lot
+        return hotBest;
+      }
+    }
     // Otherwise prefer keeping at least 3 dice live, taking the best gain; if impossible take everything we can.
     const keep3 = opts.filter(function (o) {
-      return n - o.idx.length >= 3;
+      return live - liveUsed(o) >= 3;
     });
     const pool = keep3.length ? keep3 : opts;
     let best = null;
-    let bestScore = -Infinity;
     pool.forEach(function (o) {
-      // value gain, minus a small cost for each die spent (dice are future rolls)
-      const s = gain(o) - (keep3.length ? o.idx.length * cfg.targetScore * 0.004 : -o.idx.length);
-      if (s > bestScore) {
-        bestScore = s;
-        best = o;
-      }
+      // value gain, minus a small cost for each live die spent (dice are future rolls)
+      const used = liveUsed(o);
+      const s = gain(o) - (keep3.length ? used * cfg.targetScore * 0.004 : -used);
+      if (!best || s > best.score) best = { opt: o, score: s, hot: false };
     });
     return best;
   }
 
+  function aiChooseCache(match, me, values) {
+    const bonus = me.bonus && me.bonus.length === values.length ? me.bonus : values.map(function () { return false; });
+    const r = aiEvalCache(match, me, values, bonus);
+    return r ? r.opt : null;
+  }
+
+  /**
+   * Candidate deterministic item uses on the current roll: nudges on each die and copying each opponent die.
+   * Each candidate is { id, arg, dice, bonus }.
+   */
+  function aiItemCandidates(match, me) {
+    const out = [];
+    const opp = match.other(me);
+    [['nudgeUp', 1], ['nudgeDown', -1]].forEach(function (pair) {
+      if (!(me.inventory[pair[0]] > 0)) return;
+      me.dice.forEach(function (v, i) {
+        const d = me.dice.slice();
+        d[i] = wrapDie(v + pair[1]);
+        out.push({ id: pair[0], arg: i, dice: d, bonus: me.bonus.slice() });
+      });
+    });
+    if (me.inventory.copyDie > 0 && opp.rolled && opp.rolled.length) {
+      const seen = {};
+      opp.rolled.forEach(function (v, j) {
+        if (seen[v]) return;
+        seen[v] = true;
+        out.push({ id: 'copyDie', arg: j, dice: me.dice.concat([v]), bonus: me.bonus.concat([true]) });
+      });
+    }
+    return out;
+  }
+
+  function aiApply(match, me, c) {
+    if (c.id === 'nudgeUp') return match.useNudge(me, c.arg, 1);
+    if (c.id === 'nudgeDown') return match.useNudge(me, c.arg, -1);
+    if (c.id === 'copyDie') return match.useCopyDie(me, c.arg);
+    if (c.id === 'reroll') return match.useReroll(me, c.arg);
+    return null;
+  }
+
+  /** Try to turn a farkle into a scoring roll. Prefers sure things (nudge, copy) over a reroll gamble. */
+  function aiRescue(match, me) {
+    let best = null;
+    aiItemCandidates(match, me).forEach(function (c) {
+      const r = aiEvalCache(match, me, c.dice, c.bonus);
+      if (r && (!best || r.score > best.score)) best = { c: c, score: r.score };
+    });
+    if (best) {
+      aiApply(match, me, best.c);
+      return true;
+    }
+    // Gamble with rerolls while we have them.
+    while (me.inventory.reroll > 0 && match.isFarkle(me)) {
+      match.useReroll(me, Math.floor(match.rng() * me.dice.length));
+    }
+    return !match.isFarkle(me);
+  }
+
+  /** Spend at most one item to improve a good roll, but only when it is clearly worth it. */
+  function aiImprove(match, me) {
+    const base = aiEvalCache(match, me, me.dice, me.bonus);
+    if (!base) return;
+    // Nudges are saved for farkle rescues unless the AI holds a spare of that kind.
+    let best = null;
+    aiItemCandidates(match, me).forEach(function (c) {
+      if (c.id !== 'copyDie' && me.inventory[c.id] < 2) return;
+      const r = aiEvalCache(match, me, c.dice, c.bonus);
+      if (!r) return;
+      const lift = r.score - base.score;
+      const worth = (r.hot && !base.hot) || lift >= Math.max(match.cfg.targetScore * 0.03, Math.abs(base.score) * 0.6);
+      if (worth && (!best || lift > best.lift)) best = { c: c, lift: lift };
+    });
+    if (best) aiApply(match, me, best.c);
+  }
+
+  /** Copy the best hand from the opponent's pad when it is big, or when trailing. */
+  function aiMaybeIntercept(match, me) {
+    if (!match.canUse(me, 'intercept')) return;
+    const opp = match.other(me);
+    const src = match.padAtRoundStart[opp.id];
+    let bestI = -1;
+    let bestGain = 0;
+    const cur = resolvePad(me.pad, match.cfg).total;
+    src.forEach(function (h, i) {
+      const g = resolvePad(me.pad.concat([h]), match.cfg).total - cur;
+      if (g > bestGain) {
+        bestGain = g;
+        bestI = i;
+      }
+    });
+    const trailing = me.banked < opp.banked;
+    const big = src[bestI] && src[bestI].chips * src[bestI].mult >= (trailing ? 45 : 90);
+    if (bestI >= 0 && big) match.useIntercept(me, bestI);
+  }
+
   function executeAiPlan(match, me, plan) {
+    const useItems = match.cfg.ai.usesItems;
     let turn;
+    if (useItems) aiMaybeIntercept(match, me);
     if (plan.type === 'launch') {
       turn = match.launch(me);
     } else {
-      const r = match.roll(me);
-      if (r.farkle) {
+      if (!me.rolled) match.roll(me);
+      if (match.isFarkle(me) && useItems) aiRescue(match, me);
+      if (match.isFarkle(me)) {
         turn = match.farkle(me);
       } else {
-        const choice = aiChooseCache(match, me, r.values);
-        turn = match.cache(me, choice.idx);
+        if (useItems) aiImprove(match, me);
+        const r = aiEvalCache(match, me, me.dice, me.bonus);
+        turn = match.cache(me, r.opt.idx);
       }
     }
     turn.reason = plan.reason;
+    turn.items = me.items.slice();
     return turn;
   }
 
@@ -906,6 +1191,8 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
   const api = {
     HAND_DEFS: HAND_DEFS,
     HAND_DICE_TEXT: HAND_DICE_TEXT,
+    CONSUMABLE_DEFS: CONSUMABLE_DEFS,
+    RESCUE_ITEMS: RESCUE_ITEMS,
     defaultConfig: defaultConfig,
     mergeConfig: mergeConfig,
     makeRng: makeRng,
@@ -921,6 +1208,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     Match: Match,
     aiDecide: aiDecide,
     aiChooseCache: aiChooseCache,
+    executeAiPlan: executeAiPlan,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
@@ -973,7 +1261,11 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
   let pendingPlayerTurn = null;
   let rolledFresh = false;
   let matchSaved = false;
+  let targeting = null; // consumable id waiting for the player to pick a target
+  let changedDie = -1; // die index to flash after an item changed it
   const roundLog = [];
+  const ITEM = {};
+  OF.CONSUMABLE_DEFS.forEach(function (c) { ITEM[c.id] = c; });
 
   function newMatch() {
     if (match && !matchSaved && match.round > 1) saveMatch(true);
@@ -983,6 +1275,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     roundLog.length = 0;
     selected = [];
     pendingPlayerTurn = null;
+    targeting = null;
     match.beginRound();
     phase = 'choose';
     closeModal();
@@ -995,20 +1288,20 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
 
   function onRoll() {
     if (phase !== 'choose' || match.player.available === 0) return;
-    const r = match.roll(match.player);
+    match.roll(match.player);
+    // Both ships roll together, so each can see (and copy from) the other's dice.
+    match.aiRollIfPlanned();
     selected = [];
+    targeting = null;
     rolledFresh = true;
-    if (r.farkle) {
-      phase = 'farkled';
-    } else {
-      phase = 'select';
-    }
+    phase = match.isFarkle(match.player) ? 'farkled' : 'select';
     render();
     rolledFresh = false;
   }
 
   function onLaunch() {
     if (phase !== 'choose' || !match.player.pad.length) return;
+    targeting = null;
     commit(match.launch(match.player));
   }
 
@@ -1020,15 +1313,58 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
 
   function onFarkleContinue() {
     if (phase !== 'farkled') return;
+    targeting = null;
     commit(match.farkle(match.player));
   }
 
   function toggleDie(i) {
-    if (phase !== 'select' || i >= match.player.dice.length) return;
+    if (i >= match.player.dice.length) return;
+    if (targeting && ITEM[targeting].target === 'ownDie') return applyItem(i);
+    if (phase !== 'select') return;
     const at = selected.indexOf(i);
     if (at >= 0) selected.splice(at, 1);
     else selected.push(i);
     render();
+  }
+
+  // --- consumables ---
+
+  function itemPhaseOk(id) {
+    if (ITEM[id].target === 'oppHand') return phase === 'choose' || phase === 'select' || phase === 'farkled';
+    return phase === 'select' || phase === 'farkled';
+  }
+
+  function itemUsable(id) {
+    return itemPhaseOk(id) && match.canUse(match.player, id);
+  }
+
+  function hasRescue() {
+    return OF.RESCUE_ITEMS.some(function (id) { return match.canUse(match.player, id); });
+  }
+
+  function onItem(id) {
+    if (!itemUsable(id)) return;
+    targeting = targeting === id ? null : id;
+    render();
+  }
+
+  function applyItem(arg) {
+    const p = match.player;
+    const id = targeting;
+    targeting = null;
+    let rec = null;
+    if (id === 'nudgeUp') rec = match.useNudge(p, arg, 1);
+    else if (id === 'nudgeDown') rec = match.useNudge(p, arg, -1);
+    else if (id === 'reroll') rec = match.useReroll(p, arg);
+    else if (id === 'copyDie') rec = match.useCopyDie(p, arg);
+    else if (id === 'intercept') rec = match.useIntercept(p, arg);
+    if (rec) {
+      changedDie = id === 'copyDie' ? p.dice.length - 1 : id === 'intercept' ? -1 : arg;
+      selected = [];
+      if (phase === 'select' || phase === 'farkled') phase = match.isFarkle(p) ? 'farkled' : 'select';
+    }
+    render();
+    changedDie = -1;
   }
 
   function currentSelection() {
@@ -1096,39 +1432,72 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       '<div class="rocket" style="bottom:' + (8 + pct * 80) + '%">🚀</div></div>' +
       gaugeHtml(side);
 
-    if (isPlayer) {
-      html += '<div><h2 style="margin:4px 0 6px">Launch pad · ' + side.pad.length + ' hand' + (side.pad.length === 1 ? '' : 's') + '</h2>';
-      if (!side.pad.length) html += '<ul class="padlist"><li class="empty">Empty. Roll and cache hands to build thrust.</li></ul>';
-      else {
-        html += '<ul class="padlist">' + side.pad.map(function (h) {
-          return '<li><span>' + h.label + '</span><span class="dice">' + h.dice.join(' ') + '</span></li>';
-        }).join('') + '</ul>';
-      }
-      html += '</div>';
+    // Pad hands are listed by name for both ships (never the total). The opponent's are
+    // what Intercept copies from, so they become clickable while targeting.
+    const pickHand = !isPlayer && targeting === 'intercept';
+    // The AI doesn't act until the round resolves, so during your turn its pad is the round-start pad Intercept copies from.
+    const pad = side.pad;
+    html += '<div><h2 style="margin:4px 0 6px">' + (isPlayer ? 'Launch pad' : 'Their pad') + ' · ' + pad.length + ' hand' + (pad.length === 1 ? '' : 's') + '</h2>';
+    if (!pad.length) {
+      html += '<ul class="padlist"><li class="empty">' + (isPlayer ? 'Empty. Roll and cache hands to build thrust.' : 'Empty.') + '</li></ul>';
     } else {
-      html += '<div><h2 style="margin:4px 0 6px">Last turn</h2><div class="lastturn">' + describeTurn(side.lastTurn, false) + '</div></div>';
-      html += '<div class="muted" style="font-size:12px;color:var(--muted)">Pad: ' + side.pad.length + ' hand' + (side.pad.length === 1 ? '' : 's') + ' cached</div>';
+      html += '<ul class="padlist">' + pad.map(function (h, i) {
+        return '<li' + (pickHand ? ' class="pick" data-h="' + i + '"' : '') + '><span>' + h.label + (h.copied ? ' <span class="copied">copied</span>' : '') + '</span><span class="dice">' + h.dice.join(' ') + '</span></li>';
+      }).join('') + '</ul>';
     }
+    html += '</div>';
+    if (!isPlayer) {
+      html += '<div><h2 style="margin:4px 0 6px">Last turn</h2><div class="lastturn">' + describeTurn(side.lastTurn, false) + '</div></div>';
+    }
+    html += '<div><h2 style="margin:4px 0 6px">' + (isPlayer ? 'Your items' : 'Their items') + '</h2>' + inventoryHtml(side, isPlayer) + '</div>';
     el.innerHTML = html;
+    el.querySelectorAll('li.pick').forEach(function (li) {
+      li.addEventListener('click', function () { applyItem(+li.dataset.h); });
+    });
+    el.querySelectorAll('button.item').forEach(function (b) {
+      b.addEventListener('click', function () { onItem(b.dataset.id); });
+    });
+  }
+
+  function inventoryHtml(side, isPlayer) {
+    return '<div class="items">' + OF.CONSUMABLE_DEFS.map(function (c) {
+      const n = side.inventory[c.id] || 0;
+      if (!isPlayer) {
+        return '<span class="item static' + (n ? '' : ' none') + '" title="' + c.desc + '"><span class="ico">' + c.icon + '</span>' + c.name + ' <b>×' + n + '</b></span>';
+      }
+      const usable = itemUsable(c.id);
+      return '<button class="item' + (targeting === c.id ? ' active' : '') + (n ? '' : ' none') + '" data-id="' + c.id + '"' + (usable ? '' : ' disabled') +
+        ' title="' + c.desc + '"><span class="ico">' + c.icon + '</span>' + c.name + ' <b>×' + n + '</b></button>';
+    }).join('') + '</div>';
+  }
+
+  function itemsText(items) {
+    if (!items || !items.length) return '';
+    return items.map(function (i) { return i.icon + ' ' + i.name + ' (' + i.text + ')'; }).join(', ');
   }
 
   function describeTurn(t, short) {
     if (!t) return '<span class="muted" style="color:var(--muted)">No turns yet.</span>';
     let s = '';
     if (t.type === 'cache') {
-      s = '<span class="t-cache">Rolled ' + t.roll.length + ', cached</span> ' + t.hands.map(function (h) { return h.label; }).join(' + ');
+      s = '<span class="t-cache">Rolled ' + t.roll.join(' ') + ', cached</span> ' + t.hands.map(function (h) { return h.label; }).join(' + ');
       if (t.hot) s += ' · <b>Hot dice!</b>';
     } else if (t.type === 'farkle') {
       s = '<span class="t-farkle">Farkle!</span> Rolled ' + t.roll.join(' ') + (t.handsLost.length ? ' and lost a pad of ' + t.handsLost.length + ' hand' + (t.handsLost.length === 1 ? '' : 's') : '');
     } else if (t.type === 'launch') {
       s = '<span class="t-launch">Launched</span> for ' + fmt(t.resolution.total);
     }
+    if (t.items && t.items.length) s += ' · <span class="t-item">used ' + itemsText(t.items) + '</span>';
     if (!short && t.reason) s += '<span class="why">“' + t.reason + '”</span>';
     return s;
   }
 
   function cmHtml(chips, mult) {
     return '<span class="cm"><span class="c">' + fmt(chips) + '</span> × <span class="m">' + mult + '</span></span>';
+  }
+
+  function pctText(ch) {
+    return (ch * 100).toFixed(ch < 0.1 && ch > 0 ? 1 : 0) + '%';
   }
 
   function renderCenter() {
@@ -1140,12 +1509,18 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     const risk = $('risk');
 
     // Status line
-    if (phase === 'choose') {
+    if (targeting) {
+      const t = ITEM[targeting];
+      const what = t.target === 'ownDie' ? 'Click one of your dice' : t.target === 'oppDie' ? "Click one of the opponent's dice to copy" : "Click a hand on the opponent's pad to copy";
+      status.innerHTML = '<b>' + t.icon + ' ' + t.name + ':</b> ' + what + '. <span class="lock">Esc to cancel.</span>';
+    } else if (phase === 'choose') {
       status.innerHTML = '<b>Your move.</b> Roll ' + p.available + ' dice to build thrust, or launch your pad. <span class="lock">Opponent has locked in their move.</span>';
     } else if (phase === 'select') {
-      status.innerHTML = '<b>Select one or more scoring hands</b> to cache on your pad, then confirm.';
+      status.innerHTML = '<b>Select one or more scoring hands</b> to cache on your pad, then confirm. Items can change your dice first.';
     } else if (phase === 'farkled') {
-      status.innerHTML = '<b>No scoring hand.</b> Your pad is destroyed.';
+      status.innerHTML = hasRescue()
+        ? '<b style="color:var(--bad)">You farkled</b>, but you can try a consumable to make a scoring hand. Or accept the farkle.'
+        : '<b>No scoring hand.</b> Your pad is destroyed.';
     } else if (phase === 'reveal') {
       status.innerHTML = 'Revealing round…';
     } else {
@@ -1153,10 +1528,12 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     }
 
     // Dice tray
+    const pickOwn = targeting && ITEM[targeting].target === 'ownDie';
     let dice = '';
     if (phase === 'select' || phase === 'farkled') {
       p.dice.forEach(function (v, i) {
-        const cls = 'die' + (phase === 'select' ? ' clickable' : ' dead') + (selected.indexOf(i) >= 0 ? ' sel' : '') + (rolledFresh ? ' rolling' : '');
+        const cls = 'die' + (phase === 'select' || pickOwn ? ' clickable' : ' dead') + (selected.indexOf(i) >= 0 ? ' sel' : '') +
+          (rolledFresh && !p.bonus[i] ? ' rolling' : '') + (p.bonus[i] ? ' bonus' : '') + (pickOwn ? ' target' : '') + (i === changedDie ? ' changed' : '');
         dice += '<button class="' + cls + '" data-i="' + i + '" style="animation-delay:' + (i * 40) + 'ms" aria-label="Die ' + (i + 1) + ': ' + v + '">' + v + '</button>';
       });
     } else {
@@ -1169,16 +1546,18 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       b.addEventListener('click', function () { toggleDie(+b.dataset.i); });
     });
 
+    renderOppTray();
+
     // Selection info
     if (phase === 'select') {
       if (!selected.length) {
-        sel.innerHTML = '<span class="hint">Click dice (or press 1–6) to select a hand.</span>';
+        sel.innerHTML = '<span class="hint">Click dice (or press 1–' + p.dice.length + ') to select a hand.' + (p.bonus.some(Boolean) ? ' Copied dice (blue) are free: they don’t use up your live dice.' : '') + '</span>';
       } else {
         const hands = currentSelection();
         if (!hands) {
           sel.innerHTML = '<span class="invalid">Not a valid hand: every selected die must be part of a scoring hand.</span>';
         } else {
-          const left = p.available - selected.length;
+          const left = p.available - match.liveCount(p, selected);
           sel.innerHTML = hands.map(function (h) {
             return '<span class="hand">' + h.label + ' · ' + cmHtml(h.chips, h.mult) + '</span>';
           }).join('') +
@@ -1186,7 +1565,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
         }
       }
     } else if (phase === 'farkled') {
-      sel.innerHTML = '<span class="invalid">Your pad of ' + p.pad.length + ' hand' + (p.pad.length === 1 ? '' : 's') + ' will be destroyed.</span>';
+      sel.innerHTML = '<span class="invalid">Accepting the farkle destroys your pad of ' + p.pad.length + ' hand' + (p.pad.length === 1 ? '' : 's') + '.</span>';
     } else {
       sel.innerHTML = '';
     }
@@ -1199,7 +1578,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     } else if (phase === 'select') {
       a += '<button class="primary" id="a-cache"' + (currentSelection() ? '' : ' disabled') + '>Cache & end turn<kbd>Enter</kbd></button>';
     } else if (phase === 'farkled') {
-      a += '<button class="danger" id="a-fcont">End turn<kbd>Enter</kbd></button>';
+      a += '<button class="danger" id="a-fcont">' + (hasRescue() ? 'Accept farkle (lose pad)' : 'End turn') + '<kbd>Enter</kbd></button>';
     } else if (phase === 'over') {
       a += '<button class="primary" id="a-again">Play again</button>';
     }
@@ -1212,14 +1591,40 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
 
     // Farkle risk readout
     if (cfg.showFarkleRisk && phase === 'choose' && p.available) {
-      const ch = OF.farkleChance(p.available);
-      risk.innerHTML = 'Farkle chance on a ' + p.available + '-die roll: <b>' + (ch * 100).toFixed(ch < 0.1 && ch > 0 ? 1 : 0) + '%</b>';
+      risk.innerHTML = 'Farkle chance on a ' + p.available + '-die roll: <b>' + pctText(OF.farkleChance(p.available)) + '</b>';
     } else if (cfg.showFarkleRisk && phase === 'select' && selected.length && currentSelection()) {
-      let left = p.available - selected.length;
+      let left = p.available - match.liveCount(p, selected);
       if (left === 0 && cfg.hotDice) left = 6;
-      const ch = OF.farkleChance(left);
-      risk.innerHTML = left ? 'Next roll would be ' + left + ' dice: <b>' + (ch * 100).toFixed(ch < 0.1 && ch > 0 ? 1 : 0) + '%</b> farkle chance' : 'No dice left after this: you will have to launch.';
+      risk.innerHTML = left ? 'Next roll would be ' + left + ' dice: <b>' + pctText(OF.farkleChance(left)) + '</b> farkle chance' : 'No dice left after this: you will have to launch.';
     } else risk.innerHTML = '';
+  }
+
+  /** The opponent's roll for this round, shown once both ships have rolled. */
+  function renderOppTray() {
+    const el = $('opptray');
+    const ai = match.ai;
+    const pick = targeting === 'copyDie';
+    let body = '';
+    if (phase === 'choose') {
+      body = '<span class="hint">Their move is locked in. Their dice appear when you roll.</span>';
+    } else if (phase === 'select' || phase === 'farkled') {
+      if (ai.rolled) {
+        body = ai.rolled.map(function (v, j) {
+          return '<button class="die mini' + (pick ? ' clickable target' : '') + (rolledFresh ? ' rolling' : '') + '" data-j="' + j + '"' + (pick ? '' : ' tabindex="-1"') + '>' + v + '</button>';
+        }).join('');
+        if (!OF.hasScoring(ai.rolled)) body += '<span class="hint" style="align-self:center">No scoring dice… unless they use an item.</span>';
+      } else {
+        body = '<span class="hint">They are not rolling this round.</span>';
+      }
+    } else {
+      body = '<span class="hint">—</span>';
+    }
+    el.innerHTML = '<div class="opplabel">Opponent’s roll</div><div class="oppdice">' + body + '</div>';
+    if (pick) {
+      el.querySelectorAll('.die[data-j]').forEach(function (b) {
+        b.addEventListener('click', function () { applyItem(+b.dataset.j); });
+      });
+    }
   }
 
   function bind(id, fn) {
@@ -1291,10 +1696,11 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     if (t.type === 'cache') {
       body = '<div class="big" style="color:var(--accent)">Cached</div>' +
         '<div>' + t.hands.map(function (h) { return h.label + ' ' + cmHtml(h.chips, h.mult); }).join('<br>') + '</div>' +
-        '<div class="muted">Rolled ' + t.roll.join(' ') + (t.hot ? ' · <b style="color:var(--accent)">Hot dice! Six dice return.</b>' : ' · ' + t.diceLeft + ' dice left') + '</div>';
+        '<div class="muted">Rolled ' + t.roll.join(' ') + afterItems(t) + (t.hot ? ' · <b style="color:var(--accent)">Hot dice! Six dice return.</b>' : ' · ' + t.diceLeft + ' dice left') + '</div>' +
+        (t.earned ? '<div class="muted">Earned an item: <b style="color:var(--text)">' + ITEM[t.earned].icon + ' ' + ITEM[t.earned].name + '</b></div>' : '');
     } else if (t.type === 'farkle') {
       cls += ' farkle';
-      body = '<div class="big" style="color:var(--bad)">Farkle!</div><div class="muted">Rolled ' + t.roll.join(' ') + ' with no scoring hand.</div>';
+      body = '<div class="big" style="color:var(--bad)">Farkle!</div><div class="muted">Rolled ' + t.roll.join(' ') + afterItems(t) + ' with no scoring hand.</div>';
       if (t.handsLost.length) {
         body += '<div>Pad destroyed: ' + t.handsLost.length + ' hand' + (t.handsLost.length === 1 ? '' : 's') + '.</div>' +
           '<div class="muted">It would have launched for <b style="color:var(--text)">' + fmt(t.lost.total) + '</b>.</div>';
@@ -1313,8 +1719,14 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
         '<span class="total" id="' + idPrefix + '-total">= ' + fmt(r.total) + '</span></div>' +
         '<div class="muted" style="text-align:center">Banked ' + fmt(t.before) + ' → <b style="color:var(--text)">' + fmt(t.after) + '</b></div>';
     }
+    const used = t.items && t.items.length ? '<div class="used">Used ' + itemsText(t.items) + '</div>' : '';
     const why = t.reason ? '<div class="why">“' + t.reason + '”</div>' : '';
-    return '<div class="' + cls + '"><h4><span>' + who + '</span></h4>' + body + why + '</div>';
+    return '<div class="' + cls + '"><h4><span>' + who + '</span></h4>' + body + used + why + '</div>';
+  }
+
+  function afterItems(t) {
+    if (!t.finalDice || t.finalDice.join() === t.roll.join()) return '';
+    return ' → <b style="color:var(--text)">' + t.finalDice.join(' ') + '</b> after items';
   }
 
   function animateLaunch(idPrefix, t, delay) {
@@ -1389,7 +1801,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     const logs = lsGet(LS_LOGS, []);
     const burns = match.log.burns.map(function (b) {
       return {
-        side: b.side, startRound: b.startRound, endRound: b.endRound, caches: b.caches, rolls: b.rolls, hotDice: b.hotDice,
+        side: b.side, startRound: b.startRound, endRound: b.endRound, caches: b.caches, rolls: b.rolls, hotDice: b.hotDice, items: b.items || 0,
         outcome: b.outcome, total: b.total, diffAtStart: b.diffAtStart, diffAtEnd: b.diffAtEnd, trailing: b.trailing,
       };
     });
@@ -1410,8 +1822,9 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       playerBanked: match.player.banked,
       aiBanked: match.ai.banked,
       comeback: comeback,
-      config: { targetScore: cfg.targetScore, scoringMode: cfg.scoringMode, gaugeTiers: cfg.gaugeTiers, hotDice: cfg.hotDice, showFarkleRisk: cfg.showFarkleRisk },
+      config: { targetScore: cfg.targetScore, scoringMode: cfg.scoringMode, gaugeTiers: cfg.gaugeTiers, hotDice: cfg.hotDice, showFarkleRisk: cfg.showFarkleRisk, consumables: cfg.consumables, aiUsesItems: cfg.ai.usesItems },
       burns: burns,
+      items: match.log.items,
       roundLog: match.log.rounds,
       survey: null,
     });
@@ -1462,6 +1875,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       leadingN: leading.length,
       comebacks: done.length ? done.filter(function (m) { return m.comeback; }).length / done.length : null,
       avgRounds: avg(done.map(function (m) { return m.rounds; })),
+      itemsPerMatch: avg(done.map(function (m) { return (m.items || []).filter(function (i) { return i.side === 'player'; }).length; })),
     };
   }
 
@@ -1485,6 +1899,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       stat(num(s.avgLaunch), 'Your average launch size') +
       stat(num(s.avgRounds, 1), 'Average rounds per match') +
       stat(s.burns, 'Your burns logged') +
+      stat(num(s.itemsPerMatch, 1), 'Items you used per match') +
       '</div>' +
       '<p style="color:var(--muted);font-size:13px">Logs live in this browser only (localStorage). Export them to collect results from each tester.</p>' +
       '<div class="foot"><button id="s-clear">Clear log</button><button id="s-csv">Export burns CSV</button><button id="s-json">Export JSON</button><button class="primary" id="s-close">Close<kbd>Esc</kbd></button></div>',
@@ -1500,7 +1915,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
   }
 
   function burnsCsv(logs) {
-    const cols = ['matchId', 'tester', 'winner', 'side', 'startRound', 'endRound', 'caches', 'rolls', 'hotDice', 'outcome', 'total', 'diffAtStart', 'diffAtEnd', 'trailing', 'targetScore', 'scoringMode'];
+    const cols = ['matchId', 'tester', 'winner', 'side', 'startRound', 'endRound', 'caches', 'rolls', 'hotDice', 'items', 'outcome', 'total', 'diffAtStart', 'diffAtEnd', 'trailing', 'targetScore', 'scoringMode'];
     const rows = [cols.join(',')];
     logs.forEach(function (m) {
       m.burns.forEach(function (b) {
@@ -1553,6 +1968,13 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       '<label>Leading: launch-point factor (&lt;1 = earlier)<input type="number" name="ai_lead" min="0.1" max="2" step="0.05" value="' + c.ai.leadingFactor + '"></label>' +
       '<label>Trailing: max launch-point factor (&gt;1 = later)<input type="number" name="ai_trail" min="1" max="4" step="0.1" value="' + c.ai.trailingMax + '"></label>' +
       '<label>Randomness per burn (±)<input type="number" name="ai_jitter" min="0" max="0.9" step="0.05" value="' + c.ai.jitter + '"></label>' +
+      '<label class="inline"><input type="checkbox" name="ai_items"' + (c.ai.usesItems ? ' checked' : '') + '>AI uses consumables</label>' +
+      '<h4>Consumables (starting count on both ships)</h4>' +
+      OF.CONSUMABLE_DEFS.map(function (it) {
+        return '<label>' + it.icon + ' ' + it.name + '<input type="number" min="0" max="9" step="1" name="cs_' + it.id + '" value="' + (c.consumables.start[it.id] || 0) + '"></label>';
+      }).join('') +
+      '<label class="inline"><input type="checkbox" name="cs_earn"' + (c.consumables.earnOnHotDice ? ' checked' : '') + '>Hot dice earns one random item</label>' +
+      '<label>Max of each item<input type="number" min="1" max="9" step="1" name="cs_max" value="' + c.consumables.maxEach + '"></label>' +
       '<h4>Base hand values</h4>' +
       '<table class="values edit" style="grid-column:1/-1">' + handRows + '</table>' +
       '</form>' +
@@ -1579,9 +2001,13 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
           run: { enabled: chk('pu_run'), mult: val('pu_run_v') || 0 },
           set: { enabled: chk('pu_set'), xmult: val('pu_set_v') || 1 },
         },
-        ai: { baseLaunchShare: val('ai_base'), leadingFactor: val('ai_lead'), trailingMax: val('ai_trail'), jitter: val('ai_jitter') },
+        ai: { baseLaunchShare: val('ai_base'), leadingFactor: val('ai_lead'), trailingMax: val('ai_trail'), jitter: val('ai_jitter'), usesItems: chk('ai_items') },
+        consumables: { start: {}, earnOnHotDice: chk('cs_earn'), maxEach: Math.max(1, Math.round(val('cs_max')) || 3) },
         hands: {},
       };
+      OF.CONSUMABLE_DEFS.forEach(function (it) {
+        over.consumables.start[it.id] = Math.max(0, Math.round(val('cs_' + it.id)) || 0);
+      });
       f.querySelectorAll('input[data-hand]').forEach(function (inp) {
         const id = inp.dataset.hand;
         over.hands[id] = over.hands[id] || {};
@@ -1609,7 +2035,11 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       '<li><b>Hot dice:</b> cache all six dice and they all come back for the same burn.</li>' +
       '<li><b>Tempo:</b> a launch costs a whole turn. A burn of N hands takes N + 1 turns. Long burns are efficient but risk a farkle.</li>' +
       '<li><b>Ties:</b> if both ships reach orbit in the same round, another round is played; then the higher banked score wins.</li>' +
-      '</ul><p style="color:var(--muted)">Keys: <kbd>R</kbd> roll · <kbd>L</kbd> launch · <kbd>1</kbd>–<kbd>6</kbd> select dice · <kbd>Enter</kbd> confirm / continue · <kbd>Esc</kbd> close</p></div>' +
+      '<li><b>Both rolls are visible.</b> When you roll, the opponent rolls too (if they chose to), and you see their dice.</li>' +
+      '<li><b>Consumables</b> are single-use and don\'t cost your turn. Click one, then click its target:<ul>' +
+      OF.CONSUMABLE_DEFS.map(function (c) { return '<li>' + c.icon + ' <b>' + c.name + '</b>: ' + c.desc + '</li>'; }).join('') +
+      '</ul>If you farkle while holding a die item, you can use it to try to make a scoring hand, or accept the farkle. The AI has the same items and uses them too.</li>' +
+      '</ul><p style="color:var(--muted)">Keys: <kbd>R</kbd> roll · <kbd>L</kbd> launch · <kbd>1</kbd>–<kbd>7</kbd> select dice · <kbd>Enter</kbd> confirm / continue · <kbd>Esc</kbd> close</p></div>' +
       '<div class="foot"><button class="primary" id="r-close">Got it<kbd>Enter</kbd></button></div>',
       closeModal
     );
@@ -1639,13 +2069,21 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     const k = e.key.toLowerCase();
     if (k === 'r') onRoll();
     else if (k === 'l') onLaunch();
-    else if (k >= '1' && k <= '6') toggleDie(+k - 1);
+    else if (k >= '1' && k <= '7') toggleDie(+k - 1);
+    else if (k === 'escape' && targeting) { targeting = null; render(); }
     else if (k === 'enter' || k === 'c') {
       e.preventDefault();
       if (phase === 'select') onCache();
       else if (phase === 'farkled') onFarkleContinue();
     }
   });
+
+  // Debug handle for the browser console (e.g. orbitalFarkle.match.player.inventory.reroll = 5; orbitalFarkle.render()).
+  window.orbitalFarkle = {
+    get match() { return match; },
+    setPhase: function (p) { phase = p; },
+    render: function () { render(); },
+  };
 
   newMatch();
   if (!lsGet('orbitalFarkle.seenRules', false)) {
