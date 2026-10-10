@@ -270,3 +270,4 @@ button.item.active .ico, button.item.active b { color: #241400; }
 .die.mini { width: 40px; height: 40px; font-size: 20px; border-radius: 7px; box-shadow: 0 3px 0 #b8b2a2; border-width: 2px; cursor: default; }
 .die.mini.clickable { cursor: crosshair; }
 .die.mini.clickable:hover { transform: translateY(-2px); }
+.item.slot { border-style: dashed; color: var(--muted); opacity: 0.6; }

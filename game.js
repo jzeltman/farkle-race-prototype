@@ -49,10 +49,29 @@
   const ITEM = {};
   OF.CONSUMABLE_DEFS.forEach(function (c) { ITEM[c.id] = c; });
 
-  function newMatch() {
+  let level = 1;
+  let runId = '';
+
+  /** Start a fresh run at level 1 with empty inventories. */
+  function newRun() {
+    runId = Date.now().toString(36);
+    startLevel(1, null);
+  }
+
+  /** After a level ends: a win moves on to the next level (items carry over); a loss starts a new run. */
+  function continueRun() {
+    if (match.winner === 'player') {
+      startLevel(level + 1, { player: Object.assign({}, match.player.inventory), ai: Object.assign({}, match.ai.inventory) });
+    } else {
+      newRun();
+    }
+  }
+
+  function startLevel(lv, carry) {
     if (match && !matchSaved && match.round > 1) saveMatch(true);
-    cfg = loadConfig();
-    match = new OF.Match(cfg);
+    level = lv;
+    cfg = OF.levelConfig(loadConfig(), lv);
+    match = new OF.Match(cfg, { level: lv, carry: carry });
     matchSaved = false;
     roundLog.length = 0;
     selected = [];
@@ -62,6 +81,22 @@
     phase = 'choose';
     closeModal();
     render();
+    if ($('overlay').hidden && lsGet('orbitalFarkle.seenRules', false)) showLevelIntro();
+  }
+
+  function showLevelIntro() {
+    const grants = match.levelGrants.map(function (id) { return ITEM[id].icon + ' ' + ITEM[id].name; });
+    const cap = cfg.consumables.capacity;
+    openModal(
+      '<div class="winbox"><h3>Level ' + level + '</h3>' +
+      '<div class="big">Orbit at ' + fmt(cfg.targetScore) + '</div>' +
+      '<p>' + (grants.length ? 'Both ships drew: <b>' + grants.join(', ') + '</b>.' : 'No new items this level.') + '<br>' +
+      (match.levelLost.player.length ? '<span style="color:var(--bad)">Your inventory was full, so you lost: ' + match.levelLost.player.map(function (id) { return ITEM[id].name; }).join(', ') + '.</span><br>' : '') +
+      '<span style="color:var(--muted)">Inventory: ' + OF.inventoryCount(match.player.inventory) + '/' + cap + ' slots (drawn items that don\u2019t fit are lost).</span></p></div>' +
+      '<div class="foot"><button class="primary" id="l-go">Start level<kbd>Enter</kbd></button></div>',
+      closeModal
+    );
+    bind('l-go', closeModal);
   }
 
   // ---------------------------------------------------------------------------
@@ -182,6 +217,7 @@
   // ---------------------------------------------------------------------------
 
   function render() {
+    $('level').textContent = level;
     $('round').textContent = match.round;
     $('target').textContent = fmt(cfg.targetScore);
     $('overtime').hidden = !match.overtime;
@@ -231,7 +267,7 @@
     if (!isPlayer) {
       html += '<div><h2 style="margin:4px 0 6px">Last turn</h2><div class="lastturn">' + describeTurn(side.lastTurn, false) + '</div></div>';
     }
-    html += '<div><h2 style="margin:4px 0 6px">' + (isPlayer ? 'Your items' : 'Their items') + '</h2>' + inventoryHtml(side, isPlayer) + '</div>';
+    html += '<div><h2 style="margin:4px 0 6px">' + (isPlayer ? 'Your items' : 'Their items') + ' · ' + OF.inventoryCount(side.inventory) + '/' + cfg.consumables.capacity + '</h2>' + inventoryHtml(side, isPlayer) + '</div>';
     el.innerHTML = html;
     el.querySelectorAll('li.pick').forEach(function (li) {
       li.addEventListener('click', function () { applyItem(+li.dataset.h); });
@@ -241,16 +277,21 @@
     });
   }
 
+  /** One chip per inventory slot: owned items, then empty slots up to capacity. */
   function inventoryHtml(side, isPlayer) {
-    return '<div class="items">' + OF.CONSUMABLE_DEFS.map(function (c) {
-      const n = side.inventory[c.id] || 0;
-      if (!isPlayer) {
-        return '<span class="item static' + (n ? '' : ' none') + '" title="' + c.desc + '"><span class="ico">' + c.icon + '</span>' + c.name + ' <b>×' + n + '</b></span>';
+    let html = '';
+    OF.CONSUMABLE_DEFS.forEach(function (c) {
+      for (let k = 0; k < (side.inventory[c.id] || 0); k++) {
+        if (!isPlayer) {
+          html += '<span class="item static" title="' + c.desc + '"><span class="ico">' + c.icon + '</span>' + c.name + '</span>';
+        } else {
+          html += '<button class="item' + (targeting === c.id ? ' active' : '') + '" data-id="' + c.id + '"' + (itemUsable(c.id) ? '' : ' disabled') +
+            ' title="' + c.desc + '"><span class="ico">' + c.icon + '</span>' + c.name + '</button>';
+        }
       }
-      const usable = itemUsable(c.id);
-      return '<button class="item' + (targeting === c.id ? ' active' : '') + (n ? '' : ' none') + '" data-id="' + c.id + '"' + (usable ? '' : ' disabled') +
-        ' title="' + c.desc + '"><span class="ico">' + c.icon + '</span>' + c.name + ' <b>×' + n + '</b></button>';
-    }).join('') + '</div>';
+    });
+    for (let k = OF.inventoryCount(side.inventory); k < cfg.consumables.capacity; k++) html += '<span class="item slot">empty</span>';
+    return '<div class="items">' + html + '</div>';
   }
 
   function itemsText(items) {
@@ -369,7 +410,7 @@
     bind('a-launch', onLaunch);
     bind('a-cache', onCache);
     bind('a-fcont', onFarkleContinue);
-    bind('a-again', newMatch);
+    bind('a-again', continueRun);
 
     // Farkle risk readout
     if (cfg.showFarkleRisk && phase === 'choose' && p.available) {
@@ -396,7 +437,7 @@
         }).join('');
         if (!OF.hasScoring(ai.rolled)) body += '<span class="hint" style="align-self:center">No scoring dice… unless they use an item.</span>';
       } else {
-        body = '<span class="hint">They are not rolling this round.</span>';
+        body = '<span class="hint">They chose to <b>launch</b> this round, so they have no roll.</span>';
       }
     } else {
       body = '<span class="hint">—</span>';
@@ -549,7 +590,12 @@
 
   function showGameOver() {
     const w = match.winner;
-    const title = w === 'player' ? 'You reached orbit first! 🎉' : 'The opponent reached orbit first.';
+    const nextTarget = OF.levelTarget(loadConfig(), level + 1);
+    const title = w === 'player' ? 'Level ' + level + ' cleared! 🎉' : 'The opponent reached orbit first.';
+    const sub = w === 'player'
+      ? 'Next: level ' + (level + 1) + ', orbit at <b>' + fmt(nextTarget) + '</b>. Your leftover items carry over.'
+      : 'Run over at level ' + level + '. A new run starts at level 1.';
+    const btn = w === 'player' ? 'Save & next level' : 'Save & new run';
     const q = function (name, text) {
       let s = '<label>' + text + '<div class="scale">';
       for (let i = 1; i <= 5; i++) s += '<label><input type="radio" name="' + name + '" value="' + i + '">' + i + '</label>';
@@ -558,16 +604,16 @@
     openModal(
       '<div class="winbox"><h3>' + title + '</h3>' +
       '<div class="big">' + fmt(match.player.banked) + ' – ' + fmt(match.ai.banked) + '</div>' +
-      '<div style="color:var(--muted)">' + match.round + ' rounds</div></div>' +
+      '<div style="color:var(--muted)">' + match.round + ' rounds</div><p>' + sub + '</p></div>' +
       '<form class="survey" id="survey"><b>Quick questions (optional, saved to the playtest log)</b>' +
       q('q_bet', 'Launching felt like a bet, not a routine.') +
       q('q_opp', 'The opponent\'s score changed when I launched.') +
       q('q_fair', 'Losses felt explained by my own choices.') +
       '<label>After a farkle, what should you have done? (or anything else)<textarea name="q_note"></textarea></label></form>' +
-      '<div class="foot"><button id="m-log">Playtest log</button><button class="primary" id="m-again">Save & play again<kbd>Enter</kbd></button></div>',
-      function () { saveSurvey(); newMatch(); }
+      '<div class="foot"><button id="m-log">Playtest log</button><button class="primary" id="m-again">' + btn + '<kbd>Enter</kbd></button></div>',
+      function () { saveSurvey(); continueRun(); }
     );
-    bind('m-again', function () { saveSurvey(); newMatch(); });
+    bind('m-again', function () { saveSurvey(); continueRun(); });
     bind('m-log', function () { saveSurvey(); showStats(); });
   }
 
@@ -599,12 +645,14 @@
       startedAt: new Date(match.log.startedAt).toISOString(),
       endedAt: new Date().toISOString(),
       abandoned: !!abandoned,
+      runId: runId,
+      level: level,
       winner: abandoned ? null : match.winner,
       rounds: match.round,
       playerBanked: match.player.banked,
       aiBanked: match.ai.banked,
       comeback: comeback,
-      config: { targetScore: cfg.targetScore, scoringMode: cfg.scoringMode, gaugeTiers: cfg.gaugeTiers, hotDice: cfg.hotDice, showFarkleRisk: cfg.showFarkleRisk, consumables: cfg.consumables, aiUsesItems: cfg.ai.usesItems },
+      config: { targetScore: cfg.targetScore, levelMultiplier: cfg.levels.multiplier, scoringMode: cfg.scoringMode, gaugeTiers: cfg.gaugeTiers, hotDice: cfg.hotDice, showFarkleRisk: cfg.showFarkleRisk, consumables: cfg.consumables, aiUsesItems: cfg.ai.usesItems },
       burns: burns,
       items: match.log.items,
       roundLog: match.log.rounds,
@@ -657,6 +705,7 @@
       leadingN: leading.length,
       comebacks: done.length ? done.filter(function (m) { return m.comeback; }).length / done.length : null,
       avgRounds: avg(done.map(function (m) { return m.rounds; })),
+      bestLevel: done.reduce(function (b, m) { return m.winner === 'player' ? Math.max(b, m.level || 1) : b; }, 0),
       itemsPerMatch: avg(done.map(function (m) { return (m.items || []).filter(function (i) { return i.side === 'player'; }).length; })),
     };
   }
@@ -682,6 +731,7 @@
       stat(num(s.avgRounds, 1), 'Average rounds per match') +
       stat(s.burns, 'Your burns logged') +
       stat(num(s.itemsPerMatch, 1), 'Items you used per match') +
+      stat(s.bestLevel || '–', 'Highest level cleared') +
       '</div>' +
       '<p style="color:var(--muted);font-size:13px">Logs live in this browser only (localStorage). Export them to collect results from each tester.</p>' +
       '<div class="foot"><button id="s-clear">Clear log</button><button id="s-csv">Export burns CSV</button><button id="s-json">Export JSON</button><button class="primary" id="s-close">Close<kbd>Esc</kbd></button></div>',
@@ -697,11 +747,11 @@
   }
 
   function burnsCsv(logs) {
-    const cols = ['matchId', 'tester', 'winner', 'side', 'startRound', 'endRound', 'caches', 'rolls', 'hotDice', 'items', 'outcome', 'total', 'diffAtStart', 'diffAtEnd', 'trailing', 'targetScore', 'scoringMode'];
+    const cols = ['matchId', 'runId', 'level', 'tester', 'winner', 'side', 'startRound', 'endRound', 'caches', 'rolls', 'hotDice', 'items', 'outcome', 'total', 'diffAtStart', 'diffAtEnd', 'trailing', 'targetScore', 'scoringMode'];
     const rows = [cols.join(',')];
     logs.forEach(function (m) {
       m.burns.forEach(function (b) {
-        const r = Object.assign({ matchId: m.id, tester: m.tester, winner: m.winner, targetScore: m.config.targetScore, scoringMode: m.config.scoringMode }, b);
+        const r = Object.assign({ matchId: m.id, runId: m.runId, level: m.level, tester: m.tester, winner: m.winner, targetScore: m.config.targetScore, scoringMode: m.config.scoringMode }, b);
         rows.push(cols.map(function (c) { const v = r[c]; return v === null || v === undefined ? '' : JSON.stringify(v); }).join(','));
       });
     });
@@ -733,9 +783,9 @@
         '<td><input type="number" min="0" step="0.5" data-hand="' + h.id + '" data-k="mult" value="' + c.hands[h.id].mult + '"></td></tr>';
     });
     openModal(
-      '<h3>Tuning dials</h3><p style="color:var(--muted);font-size:13px;margin-top:0">Changes apply when you save, and restart the match. Saved in this browser.</p>' +
+      '<h3>Tuning dials</h3><p style="color:var(--muted);font-size:13px;margin-top:0">Changes apply when you save, and start a new run at level 1. Saved in this browser.</p>' +
       '<form class="form" id="tune">' +
-      '<label>Target score (orbital velocity)<input type="number" name="targetScore" min="100" step="100" value="' + c.targetScore + '"></label>' +
+      '<label>Level 1 target score (orbital velocity)<input type="number" name="targetScore" min="100" step="100" value="' + c.targetScore + '"></label>' +
       '<label>Scoring at launch<select name="scoringMode"><option value="pooled"' + (c.scoringMode === 'pooled' ? ' selected' : '') + '>Pooled: total chips × total mult</option><option value="perHand"' + (c.scoringMode === 'perHand' ? ' selected' : '') + '>Per hand: sum of each chips × mult</option></select></label>' +
       '<label>Gauge tiers (granularity)<input type="number" name="gaugeTiers" min="2" max="12" step="1" value="' + c.gaugeTiers + '"></label>' +
       '<label class="inline"><input type="checkbox" name="hotDice"' + (c.hotDice ? ' checked' : '') + '>Hot dice (all six return when every die is cached)</label>' +
@@ -751,12 +801,18 @@
       '<label>Trailing: max launch-point factor (&gt;1 = later)<input type="number" name="ai_trail" min="1" max="4" step="0.1" value="' + c.ai.trailingMax + '"></label>' +
       '<label>Randomness per burn (±)<input type="number" name="ai_jitter" min="0" max="0.9" step="0.05" value="' + c.ai.jitter + '"></label>' +
       '<label class="inline"><input type="checkbox" name="ai_items"' + (c.ai.usesItems ? ' checked' : '') + '>AI uses consumables</label>' +
-      '<h4>Consumables (starting count on both ships)</h4>' +
-      OF.CONSUMABLE_DEFS.map(function (it) {
-        return '<label>' + it.icon + ' ' + it.name + '<input type="number" min="0" max="9" step="1" name="cs_' + it.id + '" value="' + (c.consumables.start[it.id] || 0) + '"></label>';
-      }).join('') +
+      '<h4>Levels</h4>' +
+      '<label>Target multiplier per level<input type="number" name="lv_mult" min="1" max="4" step="0.05" value="' + c.levels.multiplier + '"></label>' +
+      '<span></span>' +
+      '<h4>Consumables</h4>' +
+      '<label>Inventory slots per ship<input type="number" name="cs_cap" min="0" max="10" step="1" value="' + c.consumables.capacity + '"></label>' +
+      '<label>Random items granted each level (same for both ships)<input type="number" name="cs_per" min="0" max="10" step="1" value="' + c.consumables.perLevel + '"></label>' +
       '<label class="inline"><input type="checkbox" name="cs_earn"' + (c.consumables.earnOnHotDice ? ' checked' : '') + '>Hot dice earns one random item</label>' +
-      '<label>Max of each item<input type="number" min="1" max="9" step="1" name="cs_max" value="' + c.consumables.maxEach + '"></label>' +
+      '<span></span>' +
+      '<div style="grid-column:1/-1;color:var(--muted)">Items that can be drawn:</div>' +
+      OF.CONSUMABLE_DEFS.map(function (it) {
+        return '<label class="inline"><input type="checkbox" name="cs_' + it.id + '"' + (c.consumables.pool[it.id] ? ' checked' : '') + '>' + it.icon + ' ' + it.name + '</label>';
+      }).join('') +
       '<h4>Base hand values</h4>' +
       '<table class="values edit" style="grid-column:1/-1">' + handRows + '</table>' +
       '</form>' +
@@ -766,7 +822,7 @@
     bind('t-cancel', closeModal);
     bind('t-reset', function () {
       try { localStorage.removeItem(LS_CONFIG); } catch (e) { /* ignore */ }
-      newMatch();
+      newRun();
     });
     bind('t-save', function () {
       const f = $('tune');
@@ -784,11 +840,17 @@
           set: { enabled: chk('pu_set'), xmult: val('pu_set_v') || 1 },
         },
         ai: { baseLaunchShare: val('ai_base'), leadingFactor: val('ai_lead'), trailingMax: val('ai_trail'), jitter: val('ai_jitter'), usesItems: chk('ai_items') },
-        consumables: { start: {}, earnOnHotDice: chk('cs_earn'), maxEach: Math.max(1, Math.round(val('cs_max')) || 3) },
+        consumables: {
+          capacity: Math.max(0, Math.round(val('cs_cap')) || 0),
+          perLevel: Math.max(0, Math.round(val('cs_per')) || 0),
+          earnOnHotDice: chk('cs_earn'),
+          pool: {},
+        },
+        levels: { multiplier: Math.max(1, val('lv_mult') || 1.5) },
         hands: {},
       };
       OF.CONSUMABLE_DEFS.forEach(function (it) {
-        over.consumables.start[it.id] = Math.max(0, Math.round(val('cs_' + it.id)) || 0);
+        over.consumables.pool[it.id] = chk('cs_' + it.id);
       });
       f.querySelectorAll('input[data-hand]').forEach(function (inp) {
         const id = inp.dataset.hand;
@@ -796,7 +858,7 @@
         over.hands[id][inp.dataset.k] = Math.max(0, parseFloat(inp.value) || 0);
       });
       lsSet(LS_CONFIG, over);
-      newMatch();
+      newRun();
     });
   }
 
@@ -807,7 +869,8 @@
   function showRules() {
     openModal(
       '<h3>How to play</h3><div class="rules"><ul>' +
-      '<li><b>Race to orbit.</b> First ship to bank <b>' + fmt(cfg.targetScore) + '</b> points wins.</li>' +
+      '<li><b>Race to orbit.</b> First ship to bank <b>' + fmt(cfg.targetScore) + '</b> points wins the level.</li>' +
+      '<li><b>Levels.</b> Win a level to move on. Each level\'s target is ×' + cfg.levels.multiplier + ' the last. Lose and the run starts over at level 1.</li>' +
       '<li><b>Simultaneous rounds.</b> Each round you and the AI each take one turn at the same time. The AI locks in before seeing yours; results are revealed together.</li>' +
       '<li><b>Your turn is one of:</b><ol>' +
       '<li><b>Roll and cache</b>: roll your live dice, select one or more scoring hands, and cache them on your launch pad.</li>' +
@@ -817,8 +880,8 @@
       '<li><b>Hot dice:</b> cache all six dice and they all come back for the same burn.</li>' +
       '<li><b>Tempo:</b> a launch costs a whole turn. A burn of N hands takes N + 1 turns. Long burns are efficient but risk a farkle.</li>' +
       '<li><b>Ties:</b> if both ships reach orbit in the same round, another round is played; then the higher banked score wins.</li>' +
-      '<li><b>Both rolls are visible.</b> When you roll, the opponent rolls too (if they chose to), and you see their dice.</li>' +
-      '<li><b>Consumables</b> are single-use and don\'t cost your turn. Click one, then click its target:<ul>' +
+      '<li><b>Both rolls are visible.</b> Each round both ships either roll and cache or launch. When you roll, you see the opponent\'s dice too, or that they chose to launch.</li>' +
+      '<li><b>Consumables</b> are single-use and don\'t cost your turn. You have ' + cfg.consumables.capacity + ' inventory slots. Each level both ships draw ' + cfg.consumables.perLevel + ' random items, and leftovers carry over. Click an item, then click its target:<ul>' +
       OF.CONSUMABLE_DEFS.map(function (c) { return '<li>' + c.icon + ' <b>' + c.name + '</b>: ' + c.desc + '</li>'; }).join('') +
       '</ul>If you farkle while holding a die item, you can use it to try to make a scoring hand, or accept the farkle. The AI has the same items and uses them too.</li>' +
       '</ul><p style="color:var(--muted)">Keys: <kbd>R</kbd> roll · <kbd>L</kbd> launch · <kbd>1</kbd>–<kbd>7</kbd> select dice · <kbd>Enter</kbd> confirm / continue · <kbd>Esc</kbd> close</p></div>' +
@@ -836,7 +899,7 @@
   bind('btn-tuning', showTuning);
   bind('btn-stats', showStats);
   bind('btn-restart', function () {
-    if (match.round <= 1 || phase === 'over' || confirm('Restart the match? Progress is logged as abandoned.')) newMatch();
+    if ((level === 1 && match.round <= 1) || confirm('Start a new run at level 1? This level is logged as abandoned.')) newRun();
   });
 
   document.addEventListener('keydown', function (e) {
@@ -867,7 +930,7 @@
     render: function () { render(); },
   };
 
-  newMatch();
+  newRun();
   if (!lsGet('orbitalFarkle.seenRules', false)) {
     lsSet('orbitalFarkle.seenRules', true);
     showRules();

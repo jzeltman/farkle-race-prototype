@@ -26,9 +26,13 @@ No build step and no dependencies.
 
 Keys: `R` roll · `L` launch · `1`–`6` select dice · `Enter` cache or continue · `Esc` close a dialog.
 
-## Consumables (phase 2 start)
+## Levels
 
-Each ship starts with one of each item, and both ships have the same items. Using an item doesn't cost your turn. Click an item, then click its target. `Esc` cancels.
+Win a level to move on to the next. Each level's target is 1.5× the last (2,500 → 3,750 → 5,630 → 8,440 …). If you lose a level, the run starts again at level 1. Banked scores reset every level. Leftover items carry over. You can change the multiplier in Tuning.
+
+## Consumables
+
+Each ship has **3 inventory slots**. At the start of every level, both ships draw the same **2 random items**. Leftovers carry over, and a drawn item that doesn't fit is lost. Using an item doesn't cost your turn. Click an item, then click its target. `Esc` cancels.
 
 | Item | Target | Effect |
 | --- | --- | --- |
@@ -38,10 +42,11 @@ Each ship starts with one of each item, and both ships have the same items. Usin
 | ⧉ Intercept | A hand on the opponent's pad | Copies the hand onto your pad. Theirs stays. You can use it before rolling or launching. |
 | ⎘ Copy die | One of the opponent's dice this round | Adds a bonus die with that value to your roll. It doesn't use up one of your live dice. |
 
-- **Both rolls are visible.** When you roll, the AI rolls too (if it committed to rolling), and its dice appear under yours. Its choice of roll or launch stays hidden until you've committed.
+- **Every round, both ships roll and cache, or launch.** When you roll, the AI rolls too if it committed to rolling, and its dice appear under yours. If it chose to launch, that area says so.
 - **Farkle rescue.** If you farkle while holding a nudge, a reroll or a usable copy die, the game tells you and lets you try them. You can also accept the farkle and lose your pad.
-- **AI items.** The AI rescues its farkles, intercepts big hands (smaller ones when it is trailing), and spends copy die to improve a roll. It keeps a nudge for rescues unless it has a spare. Everything the AI used appears in the round reveal and in its last turn.
-- **Tuning.** You can set the starting count of each item, whether hot dice earns a random item (off by default because it snowballs), the most of each item a ship can hold, and whether the AI uses items.
+- **AI items.** The AI rescues its farkles, intercepts big hands (smaller ones when it is behind), and spends copy die to improve a roll. It keeps a nudge for rescues unless it has a spare. Everything the AI used appears in the round reveal and in its last turn.
+- **AI racing.** The AI judges the race on projected scores: banked points plus a read of the other ship's thrust gauge. If your pad looks big enough to reach orbit, it stops banking small pads and keeps rolling to get there first.
+- **Tuning.** You can set the inventory slots, the items drawn per level, which items can be drawn, whether hot dice earns an item (off by default because it snowballs), and whether the AI uses items.
 
 ## Design calls the PRD left open
 

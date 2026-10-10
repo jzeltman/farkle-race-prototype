@@ -74,10 +74,13 @@
         usesItems: true,
       },
       consumables: {
-        // Starting loadout, the same for both ships.
-        start: { nudgeUp: 1, nudgeDown: 1, reroll: 1, intercept: 1, copyDie: 1 },
-        earnOnHotDice: false, // hot dice grants one random consumable
-        maxEach: 3,
+        capacity: 3, // inventory slots per ship
+        perLevel: 2, // random items granted at the start of each level (both ships get the same draws)
+        earnOnHotDice: false, // hot dice grants one random item (if there is a free slot)
+        pool: { nudgeUp: true, nudgeDown: true, reroll: true, intercept: true, copyDie: true },
+      },
+      levels: {
+        multiplier: 1.5, // each level's target = level 1 target x multiplier^(level-1)
       },
     };
   }
@@ -95,6 +98,16 @@
       }
     });
     return out;
+  }
+
+  /** Target score for a level (level 1 = cfg.targetScore). */
+  function levelTarget(cfg, level) {
+    return Math.round((cfg.targetScore * Math.pow(cfg.levels.multiplier, Math.max(0, level - 1))) / 10) * 10;
+  }
+
+  /** The config for one level: same dials, scaled target. */
+  function levelConfig(cfg, level) {
+    return mergeConfig(cfg, { targetScore: levelTarget(cfg, level) });
   }
 
   // ---------------------------------------------------------------------------
@@ -368,6 +381,15 @@
     return out;
   }
 
+  /** A rough pad value from a gauge reading: the middle of its tier (the floor of the top tier). */
+  function gaugeEstimate(g, cfg) {
+    if (!g.tier) return 0;
+    const th = gaugeThresholds(cfg);
+    const lo = g.tier === 1 ? 0 : th[g.tier - 2];
+    const hi = g.tier - 1 < th.length ? th[g.tier - 1] : null;
+    return hi === null ? lo : (lo + hi) / 2;
+  }
+
   function gaugeTier(total, handsCount, cfg) {
     if (!handsCount) return { tier: 0, of: cfg.gaugeTiers, name: 'Empty' };
     const th = gaugeThresholds(cfg);
@@ -404,6 +426,20 @@
   // Match
   // ---------------------------------------------------------------------------
 
+  function emptyInventory() {
+    const inv = {};
+    CONSUMABLE_DEFS.forEach(function (c) {
+      inv[c.id] = 0;
+    });
+    return inv;
+  }
+
+  function inventoryCount(inv) {
+    return Object.keys(inv).reduce(function (n, k) {
+      return n + (inv[k] || 0);
+    }, 0);
+  }
+
   function newSide(id, cfg) {
     return {
       id: id,
@@ -414,7 +450,7 @@
       bonus: [], // bonus[i] true when dice[i] was copied from the opponent
       rolled: null, // this round's roll as rolled, before any items (visible to the opponent)
       items: [], // consumables used this turn
-      inventory: Object.assign({}, cfg.consumables.start),
+      inventory: emptyInventory(),
       burn: null, // active burn info for logging
       lastTurn: null,
     };
@@ -432,7 +468,22 @@
     this.overtime = false;
     this.aiPlan = null;
     this.padAtRoundStart = { player: [], ai: [] };
+    this.level = opts.level || 1;
     this.log = { burns: [], rounds: [], items: [], startedAt: Date.now() };
+    // Leftover items carry over from the previous level, then both ships draw the same new items.
+    const carry = opts.carry || {};
+    if (carry.player) this.player.inventory = Object.assign(emptyInventory(), carry.player);
+    if (carry.ai) this.ai.inventory = Object.assign(emptyInventory(), carry.ai);
+    this.levelGrants = []; // items drawn this level
+    this.levelLost = { player: [], ai: [] }; // drawn items that didn't fit in a full inventory
+    for (let k = 0; k < cfg.consumables.perLevel; k++) {
+      const id = this.drawItem();
+      if (!id) break;
+      this.levelGrants.push(id);
+      [this.player, this.ai].forEach(function (sd) {
+        if (!this.giveItem(sd, id)) this.levelLost[sd.id].push(id);
+      }, this);
+    }
   }
 
   Match.prototype.other = function (side) {
@@ -547,15 +598,26 @@
     return this.spend(side, 'intercept', { hand: h.label, text: 'copied ' + h.label });
   };
 
-  Match.prototype.grantRandomItem = function (side) {
-    const max = this.cfg.consumables.maxEach;
+  /** A random item id from the enabled pool, or null if the pool is empty. */
+  Match.prototype.drawItem = function () {
+    const pool = this.cfg.consumables.pool;
     const ids = CONSUMABLE_DEFS.map(function (c) { return c.id; }).filter(function (id) {
-      return (side.inventory[id] || 0) < max;
+      return pool[id];
     });
     if (!ids.length) return null;
-    const id = ids[Math.floor(this.rng() * ids.length)];
+    return ids[Math.floor(this.rng() * ids.length)];
+  };
+
+  /** Add an item if the ship has a free inventory slot. Returns true if it fit. */
+  Match.prototype.giveItem = function (side, id) {
+    if (inventoryCount(side.inventory) >= this.cfg.consumables.capacity) return false;
     side.inventory[id] = (side.inventory[id] || 0) + 1;
-    return id;
+    return true;
+  };
+
+  Match.prototype.grantRandomItem = function (side) {
+    const id = this.drawItem();
+    return id && this.giveItem(side, id) ? id : null;
   };
 
   /** Cache the dice at the given indices of the current roll. Returns the turn record or null if invalid. */
@@ -700,14 +762,22 @@
     const need = cfg.targetScore - me.banked;
     if (pad >= need) return { type: 'launch', reason: 'Pad reaches orbit' };
 
-    const lead = me.banked - opp.banked;
+    // Judge the race on projected scores: banked plus a read of the pad gauge, so a big
+    // unbanked pad on the other ship counts as a threat even before it launches.
+    const oppEst = opp.banked + gaugeEstimate(match.gauge(opp), cfg);
+    const lead = me.banked + pad - oppEst;
+
+    // The opponent could reach orbit on their next launch. Banking short of orbit won't
+    // stop them, so race for a pad that gets us there, unless the next roll is very risky.
+    if (oppEst >= cfg.targetScore) {
+      const rescues = cfg.ai.usesItems ? (me.inventory.nudgeUp || 0) + (me.inventory.nudgeDown || 0) + (me.inventory.reroll || 0) : 0;
+      if (farkleChance(me.available) >= 0.4 && !rescues) return { type: 'launch', reason: 'They are near orbit and my dice are thin: banking' };
+      return { type: 'roll', reason: 'They are near orbit: racing to get there first' };
+    }
+
     let threshold = cfg.targetScore * cfg.ai.baseLaunchShare;
     if (lead > 0) threshold *= cfg.ai.leadingFactor;
     else if (lead < 0) threshold *= 1 + Math.min(1, (-lead / cfg.targetScore) * 2) * (cfg.ai.trailingMax - 1);
-
-    // Opponent's pad looks big and they are close: bank what we have so we are not left behind.
-    const oppGauge = gaugeTier(match.padTotal(opp), opp.pad.length, cfg);
-    if (opp.banked >= cfg.targetScore * 0.6 && oppGauge.tier >= Math.ceil(cfg.gaugeTiers * 0.6)) threshold *= 0.8;
 
     // Few dice left means a high farkle chance on the next roll. Rescue items soften that.
     let risk = farkleChance(me.available);
@@ -719,8 +789,8 @@
 
     threshold *= me.burn ? me.burn.jitter : 1;
     if (threshold > need) threshold = need;
-    if (pad >= threshold) return { type: 'launch', reason: lead > 0 ? 'Leading: banking early' : 'Pad is big enough' };
-    return { type: 'roll', reason: lead < 0 ? 'Trailing: pressing on' : 'Building thrust' };
+    if (pad >= threshold) return { type: 'launch', reason: lead > 0 ? 'Ahead: banking early' : 'Pad is big enough' };
+    return { type: 'roll', reason: lead < 0 ? 'Behind: pressing on' : 'Building thrust' };
   }
 
   /**
@@ -893,6 +963,10 @@
     CONSUMABLE_DEFS: CONSUMABLE_DEFS,
     RESCUE_ITEMS: RESCUE_ITEMS,
     defaultConfig: defaultConfig,
+    levelTarget: levelTarget,
+    levelConfig: levelConfig,
+    inventoryCount: inventoryCount,
+    gaugeEstimate: gaugeEstimate,
     mergeConfig: mergeConfig,
     makeRng: makeRng,
     rollDice: rollDice,
