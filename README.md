@@ -2,11 +2,10 @@
 
 A 2D browser prototype for testing one question: does press-your-luck stay tense when Balatro-style chips × mult scoring is paired with a visible opponent race?
 
-## Run it
+## Play it
 
-No build step and no dependencies.
-
-- **Simplest:** double-click `orbital-farkle.html`. It is a single self-contained file and easy to send to testers. `index.html` is the same game split into separate files for editing.
+- **GitHub Pages:** open the repo's Pages URL (https://jzeltman.github.io/farkle-race-prototype/). Pages serves the root `index.html`.
+- **Locally:** double-click `index.html`. It is one self-contained file with no dependencies, so it is also easy to send to testers.
 - **Localhost:** `python3 -m http.server 8000`, then open <http://localhost:8000>.
 
 ## Layout
@@ -76,9 +75,11 @@ Lone pairs are out of the hand set because they made rolls of 5 or 6 dice imposs
 
 ## Files
 
-- `index.html`, `style.css`: the page (`assets/`: rocket images, also inlined in the CSS)
-- `engine.js`: rules, scoring, gauge, match flow and the AI (no DOM)
-- `game.js`: UI, reveal animation, logging and tuning
+- `index.html`: the built, playable game. **Don't edit it by hand**: it is generated from `src/`.
+- `src/index.html`, `src/style.css`: the page source (`assets/`: rocket images, also inlined in the CSS)
+- `src/engine.js`: rules, scoring, gauge, match flow and the AI (no DOM)
+- `src/game.js`: UI, reveal animation, logging and tuning
+- `build.py`: bundles `src/` into the root `index.html`
 - `sim.js`: headless AI-vs-AI balance sim: `node sim.js [matches] [target] [pooled|perHand] [noitems]`
 
 In the browser console, `orbitalFarkle.match` gives you the live match for debugging. For example, set `orbitalFarkle.match.player.inventory.reroll = 5` and then call `orbitalFarkle.render()`.
@@ -87,8 +88,12 @@ In the browser console, `orbitalFarkle.match` gives you the live match for debug
 
 Logs are stored in each tester's browser (localStorage). After a session, open **Log**, enter the tester's name and click **Export burns CSV** or **Export JSON**.
 
-`orbital-farkle.html` is built from the source files. After editing them, rebuild it with:
+## Editing
+
+Edit the files in `src/`, then rebuild the root `index.html` and commit both:
 
 ```sh
-python3 -c "s=open('index.html').read();s=s.replace('<link rel=\"stylesheet\" href=\"style.css\">','<style>\n'+open('style.css').read()+'</style>');[s:=s.replace(f'<script src=\"{f}\"></script>','<script>\n'+open(f).read()+'</script>') for f in ('engine.js','game.js')];open('orbital-farkle.html','w').write(s)"
+python3 build.py
 ```
+
+To work on the source directly without rebuilding, open `src/index.html`; it loads the separate files.

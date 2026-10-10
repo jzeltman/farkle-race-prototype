@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orbital Farkle</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🚀 Orbital Farkle</h1>
+    <div class="meta">
+      <span>Round <b id="round">1</b></span>
+      <span>Level <b id="level">1</b></span>
+      <span id="overtime" hidden><b class="accent">OVERTIME</b></span>
+    </div>
+    <div class="spacer"></div>
+    <div class="tools">
+      <button class="hbtn strong" id="btn-values">Hand Values</button>
+      <button class="hbtn" id="btn-rules">Rules</button>
+      <button class="hbtn" id="btn-tuning">Tuning</button>
+      <button class="hbtn" id="btn-stats">Log</button>
+      <button class="hbtn ghost" id="btn-restart" title="Start a new run at level 1">New run</button>
+    </div>
+  </header>
+
+  <main class="board">
+    <section class="handsbox opp" id="opp-hands"></section>
+    <section class="ship-board opp" id="opp-board"></section>
+    <section class="middle" id="middle"></section>
+    <section class="handsbox me" id="my-hands"></section>
+    <section class="ship-board me" id="my-board"></section>
+    <aside class="track" id="track"></aside>
+  </main>
+
+  <div class="overlay" id="overlay" hidden>
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

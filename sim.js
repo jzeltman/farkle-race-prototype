@@ -4,7 +4,7 @@
  * Usage: node sim.js [matches=2000] [target=<config default>] [mode=pooled|perHand] [noitems]
  */
 'use strict';
-const OF = require('./engine.js');
+const OF = require('./src/engine.js');
 
 const N = +(process.argv[2] || 2000);
 const cfg = OF.defaultConfig();
