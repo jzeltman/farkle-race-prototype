@@ -6,7 +6,7 @@ A 2D browser prototype for testing one question: does press-your-luck stay tense
 
 No build step and no dependencies.
 
-- **Simplest:** double-click `index.html` (it works from `file://`).
+- **Simplest:** double-click `orbital-farkle.html`. It is a single self-contained file and easy to send to testers. `index.html` is the same game split into separate files for editing.
 - **Localhost:** `python3 -m http.server 8000`, then open <http://localhost:8000>.
 
 ## What's in Phase 1
@@ -52,3 +52,9 @@ Because pairs score, a roll of 5 or 6 dice can never farkle. The risk starts at 
 ## Collecting playtest data
 
 Logs are stored in each tester's browser (localStorage). After a session, open **Playtest log**, enter the tester's name and click **Export burns CSV** or **Export JSON**.
+
+`orbital-farkle.html` is built from the source files. After editing them, rebuild it with:
+
+```sh
+python3 -c "s=open('index.html').read();s=s.replace('<link rel=\"stylesheet\" href=\"style.css\">','<style>\n'+open('style.css').read()+'</style>');[s:=s.replace(f'<script src=\"{f}\"></script>','<script>\n'+open(f).read()+'</script>') for f in ('engine.js','game.js')];open('orbital-farkle.html','w').write(s)"
+```

@@ -1,0 +1,1658 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orbital Farkle</title>
+  <style>
+:root {
+  --bg: #0b1020;
+  --bg2: #121a33;
+  --panel: #161f3d;
+  --panel2: #1d2850;
+  --line: #2c3a6b;
+  --text: #e7ecff;
+  --muted: #8f9bc7;
+  --accent: #ffb547;
+  --accent2: #ff6b3d;
+  --good: #4fd18b;
+  --bad: #ff5470;
+  --chips: #4aa8ff;
+  --mult: #ff5470;
+  --die: #f4f1e8;
+  --die-text: #1a1f36;
+  --sel: #ffb547;
+  --radius: 10px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: radial-gradient(ellipse at top, #18234a 0%, var(--bg) 60%) fixed, var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 15px;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--text);
+  padding: 8px 14px;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button.primary { background: var(--accent); color: #241400; border-color: var(--accent); font-weight: 700; }
+button.danger { background: var(--accent2); color: #fff; border-color: var(--accent2); font-weight: 700; }
+button.ghost { background: transparent; }
+kbd {
+  font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
+  padding: 0 4px; color: var(--muted); margin-left: 6px;
+}
+
+header {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 10px 16px; border-bottom: 1px solid var(--line); background: rgba(11, 16, 32, 0.7);
+}
+header h1 { font-size: 18px; margin: 0; letter-spacing: 0.5px; }
+header .meta { color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap; }
+header .meta b { color: var(--text); }
+header .spacer { flex: 1; }
+header .tools { display: flex; gap: 6px; flex-wrap: wrap; }
+
+main {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 260px;
+  gap: 14px;
+  padding: 14px 16px;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+@media (max-width: 960px) {
+  main { grid-template-columns: 1fr 1fr; }
+  #center { grid-column: 1 / -1; order: -1; }
+}
+@media (max-width: 560px) {
+  main { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 8px; }
+.panel h2 .tag { float: right; text-transform: none; letter-spacing: 0; }
+
+/* Ship panels */
+.ship { display: flex; flex-direction: column; gap: 10px; }
+.ship .name { font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: baseline; }
+.ship .banked { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ship .banked small { font-size: 13px; color: var(--muted); font-weight: 400; }
+.track {
+  position: relative; height: 150px; border-radius: 8px; overflow: hidden;
+  background: linear-gradient(to top, #24315c 0%, #121a33 70%, #070a14 100%);
+  border: 1px solid var(--line);
+}
+.track .orbit {
+  position: absolute; top: 10px; left: 0; right: 0; border-top: 1px dashed var(--accent);
+  font-size: 10px; color: var(--accent); text-align: right; padding-right: 4px;
+}
+.track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(79, 209, 139, 0.15); transition: height 0.8s ease; }
+.track .rocket {
+  position: absolute; left: 50%; font-size: 28px; transform: translate(-50%, 50%) rotate(-45deg);
+  transition: bottom 1s cubic-bezier(.3,1.4,.5,1);
+}
+.track .stars { position: absolute; inset: 0; background-image: radial-gradient(1px 1px at 20% 30%, #fff8, transparent), radial-gradient(1px 1px at 70% 15%, #fff6, transparent), radial-gradient(1px 1px at 40% 60%, #fff4, transparent), radial-gradient(1px 1px at 85% 45%, #fff5, transparent); }
+
+.gauge { display: flex; flex-direction: column; gap: 4px; }
+.gauge .label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.gauge .label b { color: var(--accent); }
+.gauge .segs { display: flex; gap: 3px; }
+.gauge .seg { flex: 1; height: 14px; border-radius: 3px; background: #26305a; transition: background 0.3s; }
+.gauge .seg.on { background: linear-gradient(to top, var(--accent2), var(--accent)); box-shadow: 0 0 8px rgba(255, 140, 60, 0.5); }
+
+.padlist { list-style: none; margin: 0; padding: 0; font-size: 13px; display: flex; flex-direction: column; gap: 3px; max-height: 180px; overflow: auto; }
+.padlist li { background: var(--bg2); padding: 4px 8px; border-radius: 6px; display: flex; justify-content: space-between; gap: 6px; }
+.padlist li .dice { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.padlist .empty { color: var(--muted); background: none; padding: 0; }
+
+.lastturn { font-size: 13px; background: var(--bg2); border-radius: 6px; padding: 8px; min-height: 38px; }
+.lastturn .t-farkle { color: var(--bad); font-weight: 700; }
+.lastturn .t-launch { color: var(--good); font-weight: 700; }
+.lastturn .t-cache { color: var(--accent); font-weight: 700; }
+.lastturn .why { color: var(--muted); font-style: italic; display: block; margin-top: 2px; }
+
+.powerups { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.powerups .pu { display: flex; justify-content: space-between; background: var(--bg2); padding: 4px 8px; border-radius: 6px; }
+.powerups .pu.off { opacity: 0.4; text-decoration: line-through; }
+
+/* Center */
+#center { display: flex; flex-direction: column; gap: 14px; }
+.status {
+  text-align: center; font-size: 15px; min-height: 22px; color: var(--muted);
+}
+.status b { color: var(--text); }
+.status .lock { color: var(--accent); }
+
+.tray {
+  display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 18px 8px; min-height: 106px;
+  background: radial-gradient(ellipse at center, #1f2b57 0%, var(--panel) 70%); border-radius: var(--radius); border: 1px solid var(--line);
+}
+.die {
+  width: 64px; height: 64px; border-radius: 10px; background: var(--die); color: var(--die-text);
+  display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800;
+  box-shadow: 0 4px 0 #b8b2a2, 0 6px 14px rgba(0, 0, 0, 0.4); user-select: none; border: 3px solid transparent;
+  transition: transform 0.12s, border-color 0.12s;
+  padding: 0;
+}
+.die.clickable:hover { transform: translateY(-3px); }
+.die.sel { border-color: var(--sel); transform: translateY(-6px); box-shadow: 0 4px 0 #b8b2a2, 0 0 18px rgba(255, 181, 71, 0.8); }
+.die.blank { background: #2a3566; color: #5a6699; box-shadow: none; font-size: 20px; }
+.die.dead { opacity: 0.35; }
+.die.rolling { animation: tumble 0.45s ease-out; }
+@keyframes tumble {
+  0% { transform: rotate(-200deg) scale(0.6); opacity: 0.2; }
+  70% { transform: rotate(15deg) scale(1.08); }
+  100% { transform: rotate(0) scale(1); opacity: 1; }
+}
+
+.selinfo { min-height: 50px; text-align: center; font-size: 14px; }
+.selinfo .hand { display: inline-block; margin: 3px 4px; background: var(--panel2); padding: 4px 10px; border-radius: 20px; border: 1px solid var(--line); }
+.selinfo .invalid { color: var(--bad); }
+.selinfo .hint { color: var(--muted); }
+.cm { font-variant-numeric: tabular-nums; font-weight: 700; }
+.cm .c { color: var(--chips); }
+.cm .m { color: var(--mult); }
+
+.actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.actions button { min-width: 140px; padding: 12px 18px; font-size: 16px; }
+.risk { text-align: center; font-size: 12px; color: var(--muted); }
+.risk b { color: var(--text); }
+
+.farkle-banner {
+  text-align: center; color: var(--bad); font-weight: 900; font-size: 26px; letter-spacing: 2px; animation: shake 0.4s;
+}
+@keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+
+/* Hand values table */
+table.values { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.values th, table.values td { padding: 4px 6px; text-align: left; border-bottom: 1px solid var(--line); }
+table.values th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+table.values td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.values td .boost { color: var(--accent); font-size: 11px; }
+.formula { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.bottom { grid-column: 1 / -1; display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; }
+@media (max-width: 960px) { .bottom { grid-template-columns: 1fr; } }
+
+.log { font-size: 12px; max-height: 260px; overflow: auto; display: flex; flex-direction: column-reverse; gap: 2px; }
+.log div { padding: 3px 6px; border-radius: 4px; background: var(--bg2); }
+.log .r { color: var(--muted); }
+
+/* Overlay / modal */
+.overlay {
+  position: fixed; inset: 0; background: rgba(5, 8, 18, 0.78); display: flex; align-items: center; justify-content: center;
+  z-index: 50; padding: 16px;
+}
+.overlay[hidden] { display: none; }
+.modal {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; width: min(760px, 100%);
+  max-height: calc(100vh - 32px); overflow: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.modal h3 { margin: 0 0 12px; font-size: 20px; }
+.modal .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 600px) { .modal .row { grid-template-columns: 1fr; } }
+.modal .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.card { background: var(--bg2); border-radius: 10px; padding: 12px; border: 1px solid var(--line); }
+.card h4 { margin: 0 0 8px; display: flex; justify-content: space-between; }
+.card.farkle { border-color: var(--bad); }
+.card.launch { border-color: var(--good); }
+.card .big { font-size: 22px; font-weight: 800; margin: 4px 0; }
+.card .steps { list-style: none; margin: 6px 0; padding: 0; font-size: 13px; }
+.card .steps li { display: flex; justify-content: space-between; padding: 2px 0; opacity: 0; transform: translateX(-6px); transition: all 0.25s; }
+.card .steps li.show { opacity: 1; transform: none; }
+.card .resolve { font-size: 24px; font-weight: 900; text-align: center; margin-top: 8px; font-variant-numeric: tabular-nums; }
+.card .resolve .total { color: var(--accent); font-size: 32px; display: block; transform: scale(0.4); opacity: 0; transition: all 0.35s cubic-bezier(.3,1.6,.5,1); }
+.card .resolve .total.show { transform: scale(1); opacity: 1; }
+.card .muted { color: var(--muted); font-size: 13px; }
+.card .why { color: var(--muted); font-style: italic; font-size: 12px; }
+
+.winbox { text-align: center; }
+.winbox .big { font-size: 34px; font-weight: 900; margin: 6px 0; }
+.survey { text-align: left; margin-top: 14px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.survey label { display: flex; flex-direction: column; gap: 4px; }
+.survey .scale { display: flex; gap: 6px; flex-wrap: wrap; }
+.survey .scale label { flex-direction: row; align-items: center; gap: 3px; }
+.survey textarea { background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px; font: inherit; min-height: 50px; }
+
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; font-size: 14px; }
+@media (max-width: 600px) { .form { grid-template-columns: 1fr; } }
+.form label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); }
+.form label.inline { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
+.form input[type=number], .form select { background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px; font: inherit; }
+.form h4 { grid-column: 1 / -1; margin: 8px 0 0; color: var(--text); }
+table.edit input { width: 64px; background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px; font: inherit; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.stat { background: var(--bg2); border-radius: 8px; padding: 10px; }
+.stat .v { font-size: 22px; font-weight: 800; }
+.stat .k { color: var(--muted); font-size: 12px; }
+.stat .pass { color: var(--good); font-size: 12px; }
+.stat .fail { color: var(--bad); font-size: 12px; }
+.rules { font-size: 14px; line-height: 1.5; }
+.rules li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🚀 Orbital Farkle</h1>
+    <div class="meta">
+      <span>Round <b id="round">1</b></span>
+      <span>Orbit at <b id="target">0</b></span>
+      <span id="overtime" hidden><b style="color:var(--accent)">OVERTIME</b></span>
+    </div>
+    <div class="spacer"></div>
+    <div class="tools">
+      <button class="ghost" id="btn-rules">Rules</button>
+      <button class="ghost" id="btn-tuning">Tuning</button>
+      <button class="ghost" id="btn-stats">Playtest log</button>
+      <button id="btn-restart">Restart</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel ship" id="side-player"></section>
+
+    <section id="center">
+      <div class="status" id="status"></div>
+      <div class="tray" id="tray"></div>
+      <div class="selinfo" id="selinfo"></div>
+      <div class="actions" id="actions"></div>
+      <div class="risk" id="risk"></div>
+    </section>
+
+    <section class="panel ship" id="side-ai"></section>
+
+    <div class="bottom">
+      <section class="panel">
+        <h2>Hand values <span class="tag" id="mode-tag"></span></h2>
+        <table class="values" id="values"></table>
+        <div class="formula" id="formula"></div>
+      </section>
+      <section class="panel">
+        <h2>Power-ups <span class="tag">same loadout on both ships</span></h2>
+        <div class="powerups" id="powerups"></div>
+        <h2 style="margin-top:14px">Thrust gauge tiers</h2>
+        <div class="formula" id="tiers" style="margin-top:0"></div>
+        <h2 style="margin-top:14px">Round log</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="overlay" id="overlay" hidden>
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <script>
+/*
+ * Orbital Farkle — game engine (no DOM).
+ * Loaded by index.html via a classic <script> tag, and by sim.js via require().
+ */
+(function (root) {
+  'use strict';
+
+  // ---------------------------------------------------------------------------
+  // Config (every value here is a tuning dial; see the Tuning panel in the UI)
+  // ---------------------------------------------------------------------------
+
+  const HAND_DEFS = [
+    // id, display name, family, base chips, base mult
+    { id: 'single1', name: 'Single 1', family: 'single', chips: 10, mult: 1 },
+    { id: 'single5', name: 'Single 5', family: 'single', chips: 5, mult: 1 },
+    { id: 'pair', name: 'Pair', family: 'set', chips: 15, mult: 2 },
+    { id: 'three', name: 'Three of a kind', family: 'set', chips: 30, mult: 3 },
+    { id: 'four', name: 'Four of a kind', family: 'set', chips: 60, mult: 4 },
+    { id: 'five', name: 'Five of a kind', family: 'set', chips: 100, mult: 5 },
+    { id: 'six', name: 'Six of a kind', family: 'set', chips: 150, mult: 7 },
+    { id: 'smallStraight', name: 'Small straight', family: 'run', chips: 30, mult: 3 },
+    { id: 'mediumStraight', name: 'Medium straight', family: 'run', chips: 50, mult: 4 },
+    { id: 'fullStraight', name: 'Full straight', family: 'run', chips: 80, mult: 6 },
+    { id: 'threePairs', name: 'Three pairs', family: 'set', chips: 60, mult: 6 },
+    { id: 'twoTriplets', name: 'Two triplets', family: 'set', chips: 100, mult: 7 },
+  ];
+
+  const HAND_DICE_TEXT = {
+    single1: '1 die (a 1)',
+    single5: '1 die (a 5)',
+    pair: '2 matching',
+    three: '3 matching',
+    four: '4 matching',
+    five: '5 matching',
+    six: '6 matching',
+    smallStraight: '4 in sequence',
+    mediumStraight: '5 in sequence',
+    fullStraight: '1-2-3-4-5-6',
+    threePairs: '3 different pairs',
+    twoTriplets: '2 different triples',
+  };
+
+  function defaultConfig() {
+    const hands = {};
+    HAND_DEFS.forEach(function (h) {
+      hands[h.id] = { chips: h.chips, mult: h.mult };
+    });
+    return {
+      targetScore: 2500,
+      // 'pooled': pad resolves as (sum of chips) x (sum of mult), Balatro style.
+      // 'perHand': each hand resolves as its own chips x mult, then they are added.
+      scoringMode: 'pooled',
+      gaugeTiers: 5,
+      hotDice: true,
+      showFarkleRisk: true,
+      hands: hands,
+      powerups: {
+        single: { enabled: true, chips: 10, appliesTo: ['single1', 'single5'] },
+        run: { enabled: true, mult: 2, appliesTo: ['smallStraight', 'mediumStraight'] },
+        set: {
+          enabled: true,
+          xmult: 1.5,
+          appliesTo: ['pair', 'three', 'four', 'five', 'six', 'threePairs', 'twoTriplets'],
+        },
+      },
+      ai: {
+        // Launch threshold as a share of the target score, before adjustments.
+        baseLaunchShare: 0.2,
+        leadingFactor: 0.65, // launch earlier when leading
+        trailingMax: 1.8, // launch later when trailing (scaled by how far behind)
+        jitter: 0.25, // +/- random spread per burn so the AI is not solvable
+      },
+    };
+  }
+
+  function mergeConfig(base, over) {
+    if (!over || typeof over !== 'object') return base;
+    const out = Array.isArray(base) ? base.slice() : Object.assign({}, base);
+    Object.keys(over).forEach(function (k) {
+      const bv = base ? base[k] : undefined;
+      const ov = over[k];
+      if (bv && typeof bv === 'object' && !Array.isArray(bv) && ov && typeof ov === 'object') {
+        out[k] = mergeConfig(bv, ov);
+      } else if (ov !== undefined) {
+        out[k] = ov;
+      }
+    });
+    return out;
+  }
+
+  // ---------------------------------------------------------------------------
+  // RNG
+  // ---------------------------------------------------------------------------
+
+  function makeRng(seed) {
+    if (seed === undefined || seed === null) return Math.random;
+    let a = seed >>> 0;
+    return function () {
+      // mulberry32
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function rollDice(n, rng) {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push(1 + Math.floor(rng() * 6));
+    return out;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Hands and scoring
+  // ---------------------------------------------------------------------------
+
+  const HAND_BY_ID = {};
+  HAND_DEFS.forEach(function (h) {
+    HAND_BY_ID[h.id] = h;
+  });
+
+  /** Chips and mult for one hand after the power-up loadout is applied. */
+  function handValue(id, cfg) {
+    const base = cfg.hands[id];
+    let chips = base.chips;
+    let mult = base.mult;
+    const boosts = [];
+    const p = cfg.powerups;
+    if (p.single.enabled && p.single.appliesTo.indexOf(id) >= 0) {
+      chips += p.single.chips;
+      boosts.push('+' + p.single.chips + ' chips');
+    }
+    if (p.run.enabled && p.run.appliesTo.indexOf(id) >= 0) {
+      mult += p.run.mult;
+      boosts.push('+' + p.run.mult + ' mult');
+    }
+    if (p.set.enabled && p.set.appliesTo.indexOf(id) >= 0) {
+      mult = mult * p.set.xmult;
+      boosts.push('×' + p.set.xmult + ' mult');
+    }
+    return { chips: chips, mult: round2(mult), boosts: boosts };
+  }
+
+  function round2(x) {
+    return Math.round(x * 100) / 100;
+  }
+
+  function makeHand(id, dice, cfg) {
+    const v = handValue(id, cfg);
+    return {
+      id: id,
+      name: HAND_BY_ID[id].name,
+      family: HAND_BY_ID[id].family,
+      dice: dice.slice().sort(),
+      chips: v.chips,
+      mult: v.mult,
+      label: handLabel(id, dice),
+    };
+  }
+
+  function handLabel(id, dice) {
+    const h = HAND_BY_ID[id];
+    if (h.family === 'set' && id !== 'threePairs' && id !== 'twoTriplets') {
+      return h.name + ' (' + dice[0] + 's)';
+    }
+    if (h.family === 'run') {
+      const s = dice.slice().sort();
+      return h.name + ' (' + s[0] + '–' + s[s.length - 1] + ')';
+    }
+    return h.name;
+  }
+
+  /**
+   * Resolve a list of hands into a launch total.
+   * Returns { chips, mult, total, steps[] } where steps describe the reveal.
+   */
+  function resolvePad(hands, cfg) {
+    let chips = 0;
+    let mult = 0;
+    let perHandTotal = 0;
+    const steps = hands.map(function (h) {
+      chips += h.chips;
+      mult = round2(mult + h.mult);
+      const own = Math.round(h.chips * h.mult);
+      perHandTotal += own;
+      return { label: h.label, chips: h.chips, mult: h.mult, runChips: chips, runMult: mult, own: own, runOwn: perHandTotal };
+    });
+    const total = cfg.scoringMode === 'perHand' ? perHandTotal : Math.round(chips * mult);
+    return { chips: chips, mult: mult, total: total, steps: steps, mode: cfg.scoringMode };
+  }
+
+  /**
+   * Split a set of selected dice values into scoring hands that use every die.
+   * Returns the best-scoring split (array of hands) or null if the selection is not valid.
+   */
+  function decompose(values, cfg) {
+    const n = values.length;
+    if (!n) return null;
+    const counts = [0, 0, 0, 0, 0, 0, 0];
+    values.forEach(function (v) {
+      counts[v]++;
+    });
+    let best = null;
+    function consider(list) {
+      const s = resolvePad(list, cfg).total;
+      if (!best || s > best.score || (s === best.score && list.length < best.list.length)) {
+        best = { list: list.slice(), score: s };
+      }
+    }
+    if (n === 6) {
+      const nz = counts.filter(function (c) {
+        return c > 0;
+      });
+      if (nz.length === 3 && nz.every(function (c) { return c === 2; })) consider([makeHand('threePairs', values, cfg)]);
+      if (nz.length === 2 && nz.every(function (c) { return c === 3; })) consider([makeHand('twoTriplets', values, cfg)]);
+    }
+    const kinds = { 2: 'pair', 3: 'three', 4: 'four', 5: 'five', 6: 'six' };
+    const straights = [
+      [4, 'smallStraight'],
+      [5, 'mediumStraight'],
+      [6, 'fullStraight'],
+    ];
+    const acc = [];
+    (function recurse() {
+      let f = 1;
+      while (f <= 6 && counts[f] === 0) f++;
+      if (f > 6) {
+        consider(acc);
+        return;
+      }
+      // The lowest remaining face must belong to some hand; try every hand containing it.
+      if (f === 1 || f === 5) {
+        counts[f]--;
+        acc.push(makeHand(f === 1 ? 'single1' : 'single5', [f], cfg));
+        recurse();
+        acc.pop();
+        counts[f]++;
+      }
+      for (let k = 2; k <= counts[f]; k++) {
+        counts[f] -= k;
+        acc.push(makeHand(kinds[k], new Array(k).fill(f), cfg));
+        recurse();
+        acc.pop();
+        counts[f] += k;
+      }
+      straights.forEach(function (st) {
+        const len = st[0];
+        if (f + len - 1 > 6) return;
+        for (let i = f; i < f + len; i++) if (!counts[i]) return;
+        const dice = [];
+        for (let i = f; i < f + len; i++) {
+          counts[i]--;
+          dice.push(i);
+        }
+        acc.push(makeHand(st[1], dice, cfg));
+        recurse();
+        acc.pop();
+        for (let i = f; i < f + len; i++) counts[i]++;
+      });
+    })();
+    return best ? best.list : null;
+  }
+
+  /** True if any subset of the roll scores (i.e. the roll is not a farkle). */
+  function hasScoring(values) {
+    const counts = [0, 0, 0, 0, 0, 0, 0];
+    values.forEach(function (v) {
+      counts[v]++;
+    });
+    if (counts[1] || counts[5]) return true;
+    for (let f = 1; f <= 6; f++) if (counts[f] >= 2) return true;
+    for (let s = 1; s <= 3; s++) {
+      if (counts[s] && counts[s + 1] && counts[s + 2] && counts[s + 3]) return true;
+    }
+    return false;
+  }
+
+  /** Exact probability that rolling n dice is a farkle. */
+  const farkleCache = {};
+  function farkleChance(n) {
+    if (n <= 0) return 0;
+    if (farkleCache[n] !== undefined) return farkleCache[n];
+    let bad = 0;
+    const total = Math.pow(6, n);
+    const vals = new Array(n).fill(1);
+    for (let i = 0; i < total; i++) {
+      let x = i;
+      for (let d = 0; d < n; d++) {
+        vals[d] = (x % 6) + 1;
+        x = Math.floor(x / 6);
+      }
+      if (!hasScoring(vals)) bad++;
+    }
+    farkleCache[n] = bad / total;
+    return farkleCache[n];
+  }
+
+  /** All valid cache options for a roll: [{ idx:[...], hands:[...] }]. */
+  function cacheOptions(values, cfg) {
+    const out = [];
+    const n = values.length;
+    for (let mask = 1; mask < 1 << n; mask++) {
+      const idx = [];
+      for (let i = 0; i < n; i++) if (mask & (1 << i)) idx.push(i);
+      const hands = decompose(
+        idx.map(function (i) {
+          return values[i];
+        }),
+        cfg
+      );
+      if (hands) out.push({ idx: idx, hands: hands });
+    }
+    return out;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Thrust gauge (coarse tiers)
+  // ---------------------------------------------------------------------------
+
+  const TIER_NAMES_5 = ['Cold', 'Spark', 'Burn', 'Roar', 'Inferno'];
+
+  function gaugeThresholds(cfg) {
+    const n = Math.max(2, cfg.gaugeTiers | 0);
+    const out = [];
+    // Tier 0 = empty pad. Tiers 1..n-1 start at target * (k/n)^1.5
+    for (let k = 1; k < n; k++) out.push(cfg.targetScore * Math.pow(k / n, 1.5));
+    return out;
+  }
+
+  function gaugeTier(total, handsCount, cfg) {
+    if (!handsCount) return { tier: 0, of: cfg.gaugeTiers, name: 'Empty' };
+    const th = gaugeThresholds(cfg);
+    let t = 1;
+    for (let i = 0; i < th.length; i++) if (total >= th[i]) t = i + 2;
+    const n = cfg.gaugeTiers;
+    const name = n === 5 ? TIER_NAMES_5[t - 1] : 'Tier ' + t;
+    return { tier: t, of: n, name: name };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Match
+  // ---------------------------------------------------------------------------
+
+  function newSide(id) {
+    return {
+      id: id,
+      banked: 0,
+      pad: [],
+      available: 6,
+      dice: [], // current roll values
+      burn: null, // active burn info for logging
+      lastTurn: null,
+    };
+  }
+
+  function Match(cfg, opts) {
+    opts = opts || {};
+    this.cfg = cfg;
+    this.rng = opts.rng || Math.random;
+    this.round = 0;
+    this.player = newSide('player');
+    this.ai = newSide('ai');
+    this.over = false;
+    this.winner = null;
+    this.overtime = false;
+    this.aiPlan = null;
+    this.playerTurn = null;
+    this.log = { burns: [], rounds: [], startedAt: Date.now() };
+  }
+
+  Match.prototype.other = function (side) {
+    return side === this.player ? this.ai : this.player;
+  };
+
+  Match.prototype.padTotal = function (side) {
+    return resolvePad(side.pad, this.cfg).total;
+  };
+
+  Match.prototype.gauge = function (side) {
+    return gaugeTier(this.padTotal(side), side.pad.length, this.cfg);
+  };
+
+  Match.prototype.beginRound = function () {
+    this.round++;
+    this.playerTurn = null;
+    // The AI commits before it sees anything the player does this round.
+    this.aiPlan = aiDecide(this, this.ai, this.player);
+  };
+
+  Match.prototype.ensureBurn = function (side) {
+    if (!side.burn) {
+      const o = this.other(side);
+      side.burn = {
+        side: side.id,
+        startRound: this.round,
+        caches: 0,
+        rolls: 0,
+        hotDice: 0,
+        diffAtStart: side.banked - o.banked,
+        jitter: 1 + (this.rng() * 2 - 1) * this.cfg.ai.jitter,
+      };
+    }
+    return side.burn;
+  };
+
+  Match.prototype.roll = function (side) {
+    this.ensureBurn(side).rolls++;
+    side.dice = rollDice(side.available, this.rng);
+    return { values: side.dice.slice(), farkle: !hasScoring(side.dice) };
+  };
+
+  /** Cache the dice at the given indices of the current roll. Returns the turn record or null if invalid. */
+  Match.prototype.cache = function (side, idx) {
+    const vals = idx.map(function (i) {
+      return side.dice[i];
+    });
+    const hands = decompose(vals, this.cfg);
+    if (!hands) return null;
+    const roll = side.dice.slice();
+    side.pad = side.pad.concat(hands);
+    side.available -= idx.length;
+    const burn = this.ensureBurn(side);
+    burn.caches++;
+    let hot = false;
+    if (side.available === 0 && this.cfg.hotDice) {
+      side.available = 6;
+      burn.hotDice++;
+      hot = true;
+    }
+    side.dice = [];
+    return { type: 'cache', roll: roll, kept: idx.slice(), hands: hands, hot: hot, diceLeft: side.available };
+  };
+
+  Match.prototype.farkle = function (side) {
+    const lost = resolvePad(side.pad, this.cfg);
+    const handsLost = side.pad.slice();
+    const roll = side.dice.slice();
+    this.endBurn(side, 'farkle', lost.total);
+    side.pad = [];
+    side.available = 6;
+    side.dice = [];
+    return { type: 'farkle', roll: roll, lost: lost, handsLost: handsLost };
+  };
+
+  Match.prototype.launch = function (side) {
+    const res = resolvePad(side.pad, this.cfg);
+    const hands = side.pad.slice();
+    const before = side.banked;
+    this.endBurn(side, 'launch', res.total);
+    side.banked += res.total;
+    side.pad = [];
+    side.available = 6;
+    side.dice = [];
+    return { type: 'launch', resolution: res, hands: hands, before: before, after: side.banked };
+  };
+
+  Match.prototype.endBurn = function (side, outcome, total) {
+    const b = side.burn;
+    if (!b) return;
+    const o = this.other(side);
+    b.outcome = outcome;
+    b.total = total;
+    b.endRound = this.round;
+    b.diffAtEnd = side.banked - o.banked;
+    b.trailing = b.diffAtEnd < 0;
+    this.log.burns.push(b);
+    side.burn = null;
+  };
+
+  /** Player commits a full turn. turn = { type:'cache', idx:[...] } | { type:'farkle' } | { type:'launch' }. */
+  Match.prototype.resolveRound = function (playerTurnRecord) {
+    const aiTurn = executeAiPlan(this, this.ai, this.aiPlan);
+    const pTurn = playerTurnRecord;
+    this.player.lastTurn = pTurn;
+    this.ai.lastTurn = aiTurn;
+
+    const t = this.cfg.targetScore;
+    const pR = this.player.banked >= t;
+    const aR = this.ai.banked >= t;
+    let result = null;
+    if (this.overtime) {
+      if (this.player.banked !== this.ai.banked) result = this.player.banked > this.ai.banked ? 'player' : 'ai';
+    } else if (pR && aR) {
+      // Both reached orbit in the same round: a tie, so another round is played.
+      // From then on the higher banked score at the end of a round wins.
+      this.overtime = true;
+      result = 'tie';
+    } else if (pR) result = 'player';
+    else if (aR) result = 'ai';
+
+    const rec = {
+      round: this.round,
+      player: summarizeTurn(pTurn),
+      ai: summarizeTurn(aiTurn),
+      playerBanked: this.player.banked,
+      aiBanked: this.ai.banked,
+    };
+    this.log.rounds.push(rec);
+
+    if (result === 'player' || result === 'ai') {
+      this.over = true;
+      this.winner = result;
+      // close any open burns so they are logged
+      [this.player, this.ai].forEach(function (s) {
+        if (s.burn) this.endBurn(s, 'matchEnd', this.padTotal(s));
+      }, this);
+      this.log.endedAt = Date.now();
+    }
+    return { player: pTurn, ai: aiTurn, result: result, round: this.round };
+  };
+
+  function summarizeTurn(t) {
+    if (!t) return null;
+    if (t.type === 'cache') return { type: 'cache', hands: t.hands.map(function (h) { return h.label; }), hot: t.hot };
+    if (t.type === 'farkle') return { type: 'farkle', lost: t.lost.total };
+    if (t.type === 'launch') return { type: 'launch', total: t.resolution.total };
+    return t;
+  }
+
+  // ---------------------------------------------------------------------------
+  // AI: readable heuristic. Keeps rolling when trailing, launches earlier when leading.
+  // ---------------------------------------------------------------------------
+
+  function aiDecide(match, me, opp) {
+    const cfg = match.cfg;
+    if (!me.pad.length) return { type: 'roll', reason: 'Pad is empty' };
+    if (me.available === 0) return { type: 'launch', reason: 'No dice left' };
+    const pad = match.padTotal(me);
+    const need = cfg.targetScore - me.banked;
+    if (pad >= need) return { type: 'launch', reason: 'Pad reaches orbit' };
+
+    const lead = me.banked - opp.banked;
+    let threshold = cfg.targetScore * cfg.ai.baseLaunchShare;
+    if (lead > 0) threshold *= cfg.ai.leadingFactor;
+    else if (lead < 0) threshold *= 1 + Math.min(1, (-lead / cfg.targetScore) * 2) * (cfg.ai.trailingMax - 1);
+
+    // Opponent's pad looks big and they are close: bank what we have so we are not left behind.
+    const oppGauge = gaugeTier(match.padTotal(opp), opp.pad.length, cfg);
+    if (opp.banked >= cfg.targetScore * 0.6 && oppGauge.tier >= Math.ceil(cfg.gaugeTiers * 0.6)) threshold *= 0.8;
+
+    // Few dice left means a high farkle chance on the next roll.
+    const risk = farkleChance(me.available);
+    if (risk >= 0.5) threshold *= 0.45;
+    else if (risk >= 0.25) threshold *= 0.65;
+    else if (risk >= 0.1) threshold *= 0.85;
+
+    threshold *= me.burn ? me.burn.jitter : 1;
+    if (threshold > need) threshold = need;
+    if (pad >= threshold) return { type: 'launch', reason: lead > 0 ? 'Leading: banking early' : 'Pad is big enough' };
+    return { type: 'roll', reason: lead < 0 ? 'Trailing: pressing on' : 'Building thrust' };
+  }
+
+  function aiChooseCache(match, me, values) {
+    const cfg = match.cfg;
+    const opts = cacheOptions(values, cfg);
+    if (!opts.length) return null;
+    const n = values.length;
+    const cur = resolvePad(me.pad, cfg);
+    function gain(o) {
+      return resolvePad(me.pad.concat(o.hands), cfg).total - cur.total;
+    }
+    // Hot dice whenever possible: it resets to six dice.
+    const all = opts.filter(function (o) {
+      return o.idx.length === n;
+    });
+    if (all.length && cfg.hotDice) return all[0];
+    // Otherwise prefer keeping at least 3 dice live, taking the best gain; if impossible take everything we can.
+    const keep3 = opts.filter(function (o) {
+      return n - o.idx.length >= 3;
+    });
+    const pool = keep3.length ? keep3 : opts;
+    let best = null;
+    let bestScore = -Infinity;
+    pool.forEach(function (o) {
+      // value gain, minus a small cost for each die spent (dice are future rolls)
+      const s = gain(o) - (keep3.length ? o.idx.length * cfg.targetScore * 0.004 : -o.idx.length);
+      if (s > bestScore) {
+        bestScore = s;
+        best = o;
+      }
+    });
+    return best;
+  }
+
+  function executeAiPlan(match, me, plan) {
+    let turn;
+    if (plan.type === 'launch') {
+      turn = match.launch(me);
+    } else {
+      const r = match.roll(me);
+      if (r.farkle) {
+        turn = match.farkle(me);
+      } else {
+        const choice = aiChooseCache(match, me, r.values);
+        turn = match.cache(me, choice.idx);
+      }
+    }
+    turn.reason = plan.reason;
+    return turn;
+  }
+
+  // ---------------------------------------------------------------------------
+
+  const api = {
+    HAND_DEFS: HAND_DEFS,
+    HAND_DICE_TEXT: HAND_DICE_TEXT,
+    defaultConfig: defaultConfig,
+    mergeConfig: mergeConfig,
+    makeRng: makeRng,
+    rollDice: rollDice,
+    handValue: handValue,
+    resolvePad: resolvePad,
+    decompose: decompose,
+    hasScoring: hasScoring,
+    farkleChance: farkleChance,
+    cacheOptions: cacheOptions,
+    gaugeTier: gaugeTier,
+    gaugeThresholds: gaugeThresholds,
+    Match: Match,
+    aiDecide: aiDecide,
+    aiChooseCache: aiChooseCache,
+  };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.OF = api;
+})(this);
+</script>
+  <script>
+/* Orbital Farkle — browser UI. Depends on engine.js (window.OF). */
+(function () {
+  'use strict';
+
+  const OF = window.OF;
+  const $ = function (id) { return document.getElementById(id); };
+  const fmt = function (n) { return Math.round(n).toLocaleString(); };
+
+  // ---------------------------------------------------------------------------
+  // Persistence (localStorage is best-effort: the game works without it)
+  // ---------------------------------------------------------------------------
+
+  const LS_CONFIG = 'orbitalFarkle.config.v1';
+  const LS_LOGS = 'orbitalFarkle.logs.v1';
+  const LS_TESTER = 'orbitalFarkle.tester.v1';
+
+  function lsGet(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+  function lsSet(key, val) {
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch (e) { /* ignore */ }
+  }
+
+  function loadConfig() {
+    return OF.mergeConfig(OF.defaultConfig(), lsGet(LS_CONFIG, null));
+  }
+
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+
+  let cfg = loadConfig();
+  let match = null;
+  let phase = 'choose'; // choose | select | farkled | reveal | over
+  let selected = [];
+  let pendingPlayerTurn = null;
+  let rolledFresh = false;
+  let matchSaved = false;
+  const roundLog = [];
+
+  function newMatch() {
+    if (match && !matchSaved && match.round > 1) saveMatch(true);
+    cfg = loadConfig();
+    match = new OF.Match(cfg);
+    matchSaved = false;
+    roundLog.length = 0;
+    selected = [];
+    pendingPlayerTurn = null;
+    match.beginRound();
+    phase = 'choose';
+    closeModal();
+    render();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Player actions
+  // ---------------------------------------------------------------------------
+
+  function onRoll() {
+    if (phase !== 'choose' || match.player.available === 0) return;
+    const r = match.roll(match.player);
+    selected = [];
+    rolledFresh = true;
+    if (r.farkle) {
+      phase = 'farkled';
+    } else {
+      phase = 'select';
+    }
+    render();
+    rolledFresh = false;
+  }
+
+  function onLaunch() {
+    if (phase !== 'choose' || !match.player.pad.length) return;
+    commit(match.launch(match.player));
+  }
+
+  function onCache() {
+    if (phase !== 'select' || !currentSelection()) return;
+    const turn = match.cache(match.player, selected.slice().sort());
+    if (turn) commit(turn);
+  }
+
+  function onFarkleContinue() {
+    if (phase !== 'farkled') return;
+    commit(match.farkle(match.player));
+  }
+
+  function toggleDie(i) {
+    if (phase !== 'select' || i >= match.player.dice.length) return;
+    const at = selected.indexOf(i);
+    if (at >= 0) selected.splice(at, 1);
+    else selected.push(i);
+    render();
+  }
+
+  function currentSelection() {
+    if (!selected.length) return null;
+    return OF.decompose(selected.map(function (i) { return match.player.dice[i]; }), cfg);
+  }
+
+  function commit(turn) {
+    pendingPlayerTurn = turn;
+    const res = match.resolveRound(turn);
+    roundLog.push(res);
+    phase = 'reveal';
+    render();
+    showReveal(res);
+  }
+
+  function afterReveal() {
+    closeModal();
+    if (match.over) {
+      phase = 'over';
+      if (!matchSaved) saveMatch(false);
+      render();
+      showGameOver();
+      return;
+    }
+    match.beginRound();
+    phase = 'choose';
+    render();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------------------
+
+  function render() {
+    $('round').textContent = match.round;
+    $('target').textContent = fmt(cfg.targetScore);
+    $('overtime').hidden = !match.overtime;
+    renderSide($('side-player'), match.player, true);
+    renderSide($('side-ai'), match.ai, false);
+    renderCenter();
+    renderValues();
+    renderLog();
+  }
+
+  function gaugeHtml(side) {
+    const g = match.gauge(side);
+    let segs = '';
+    for (let i = 0; i < g.of; i++) segs += '<div class="seg' + (i < g.tier ? ' on' : '') + '"></div>';
+    return (
+      '<div class="gauge"><div class="label"><span>Pending thrust</span><b>' + g.name + '</b></div>' +
+      '<div class="segs">' + segs + '</div></div>'
+    );
+  }
+
+  function renderSide(el, side, isPlayer) {
+    const pct = Math.min(1, side.banked / cfg.targetScore);
+    const need = Math.max(0, cfg.targetScore - side.banked);
+    let html =
+      '<div class="name"><span>' + (isPlayer ? 'You' : 'Opponent (AI)') + '</span>' +
+      '<span class="muted" style="font-size:12px;color:var(--muted)">' + side.available + ' dice live</span></div>' +
+      '<div class="banked">' + fmt(side.banked) + ' <small>banked · ' + fmt(need) + ' to orbit</small></div>' +
+      '<div class="track"><div class="stars"></div><div class="orbit">ORBIT ' + fmt(cfg.targetScore) + '</div>' +
+      '<div class="fill" style="height:' + (pct * 85) + '%"></div>' +
+      '<div class="rocket" style="bottom:' + (8 + pct * 80) + '%">🚀</div></div>' +
+      gaugeHtml(side);
+
+    if (isPlayer) {
+      html += '<div><h2 style="margin:4px 0 6px">Launch pad · ' + side.pad.length + ' hand' + (side.pad.length === 1 ? '' : 's') + '</h2>';
+      if (!side.pad.length) html += '<ul class="padlist"><li class="empty">Empty. Roll and cache hands to build thrust.</li></ul>';
+      else {
+        html += '<ul class="padlist">' + side.pad.map(function (h) {
+          return '<li><span>' + h.label + '</span><span class="dice">' + h.dice.join(' ') + '</span></li>';
+        }).join('') + '</ul>';
+      }
+      html += '</div>';
+    } else {
+      html += '<div><h2 style="margin:4px 0 6px">Last turn</h2><div class="lastturn">' + describeTurn(side.lastTurn, false) + '</div></div>';
+      html += '<div class="muted" style="font-size:12px;color:var(--muted)">Pad: ' + side.pad.length + ' hand' + (side.pad.length === 1 ? '' : 's') + ' cached</div>';
+    }
+    el.innerHTML = html;
+  }
+
+  function describeTurn(t, short) {
+    if (!t) return '<span class="muted" style="color:var(--muted)">No turns yet.</span>';
+    let s = '';
+    if (t.type === 'cache') {
+      s = '<span class="t-cache">Rolled ' + t.roll.length + ', cached</span> ' + t.hands.map(function (h) { return h.label; }).join(' + ');
+      if (t.hot) s += ' · <b>Hot dice!</b>';
+    } else if (t.type === 'farkle') {
+      s = '<span class="t-farkle">Farkle!</span> Rolled ' + t.roll.join(' ') + (t.handsLost.length ? ' and lost a pad of ' + t.handsLost.length + ' hand' + (t.handsLost.length === 1 ? '' : 's') : '');
+    } else if (t.type === 'launch') {
+      s = '<span class="t-launch">Launched</span> for ' + fmt(t.resolution.total);
+    }
+    if (!short && t.reason) s += '<span class="why">“' + t.reason + '”</span>';
+    return s;
+  }
+
+  function cmHtml(chips, mult) {
+    return '<span class="cm"><span class="c">' + fmt(chips) + '</span> × <span class="m">' + mult + '</span></span>';
+  }
+
+  function renderCenter() {
+    const p = match.player;
+    const tray = $('tray');
+    const status = $('status');
+    const sel = $('selinfo');
+    const actions = $('actions');
+    const risk = $('risk');
+
+    // Status line
+    if (phase === 'choose') {
+      status.innerHTML = '<b>Your move.</b> Roll ' + p.available + ' dice to build thrust, or launch your pad. <span class="lock">Opponent has locked in their move.</span>';
+    } else if (phase === 'select') {
+      status.innerHTML = '<b>Select one or more scoring hands</b> to cache on your pad, then confirm.';
+    } else if (phase === 'farkled') {
+      status.innerHTML = '<b>No scoring hand.</b> Your pad is destroyed.';
+    } else if (phase === 'reveal') {
+      status.innerHTML = 'Revealing round…';
+    } else {
+      status.innerHTML = '<b>Match over.</b>';
+    }
+
+    // Dice tray
+    let dice = '';
+    if (phase === 'select' || phase === 'farkled') {
+      p.dice.forEach(function (v, i) {
+        const cls = 'die' + (phase === 'select' ? ' clickable' : ' dead') + (selected.indexOf(i) >= 0 ? ' sel' : '') + (rolledFresh ? ' rolling' : '');
+        dice += '<button class="' + cls + '" data-i="' + i + '" style="animation-delay:' + (i * 40) + 'ms" aria-label="Die ' + (i + 1) + ': ' + v + '">' + v + '</button>';
+      });
+    } else {
+      for (let i = 0; i < p.available; i++) dice += '<div class="die blank">?</div>';
+      if (!p.available) dice = '<div class="hint" style="color:var(--muted);align-self:center">No dice left. Launch!</div>';
+    }
+    if (phase === 'farkled') dice += '<div class="farkle-banner" style="flex-basis:100%">FARKLE</div>';
+    tray.innerHTML = dice;
+    tray.querySelectorAll('.die[data-i]').forEach(function (b) {
+      b.addEventListener('click', function () { toggleDie(+b.dataset.i); });
+    });
+
+    // Selection info
+    if (phase === 'select') {
+      if (!selected.length) {
+        sel.innerHTML = '<span class="hint">Click dice (or press 1–6) to select a hand.</span>';
+      } else {
+        const hands = currentSelection();
+        if (!hands) {
+          sel.innerHTML = '<span class="invalid">Not a valid hand: every selected die must be part of a scoring hand.</span>';
+        } else {
+          const left = p.available - selected.length;
+          sel.innerHTML = hands.map(function (h) {
+            return '<span class="hand">' + h.label + ' · ' + cmHtml(h.chips, h.mult) + '</span>';
+          }).join('') +
+            '<div class="hint">' + (left === 0 && cfg.hotDice ? '<b style="color:var(--accent)">Hot dice!</b> All six dice come back.' : left + ' dice left for the next roll') + '</div>';
+        }
+      }
+    } else if (phase === 'farkled') {
+      sel.innerHTML = '<span class="invalid">Your pad of ' + p.pad.length + ' hand' + (p.pad.length === 1 ? '' : 's') + ' will be destroyed.</span>';
+    } else {
+      sel.innerHTML = '';
+    }
+
+    // Buttons
+    let a = '';
+    if (phase === 'choose') {
+      a += '<button class="primary" id="a-roll"' + (p.available ? '' : ' disabled') + '>Roll ' + p.available + ' dice<kbd>R</kbd></button>';
+      a += '<button class="danger" id="a-launch"' + (p.pad.length ? '' : ' disabled') + '>Launch pad<kbd>L</kbd></button>';
+    } else if (phase === 'select') {
+      a += '<button class="primary" id="a-cache"' + (currentSelection() ? '' : ' disabled') + '>Cache & end turn<kbd>Enter</kbd></button>';
+    } else if (phase === 'farkled') {
+      a += '<button class="danger" id="a-fcont">End turn<kbd>Enter</kbd></button>';
+    } else if (phase === 'over') {
+      a += '<button class="primary" id="a-again">Play again</button>';
+    }
+    actions.innerHTML = a;
+    bind('a-roll', onRoll);
+    bind('a-launch', onLaunch);
+    bind('a-cache', onCache);
+    bind('a-fcont', onFarkleContinue);
+    bind('a-again', newMatch);
+
+    // Farkle risk readout
+    if (cfg.showFarkleRisk && phase === 'choose' && p.available) {
+      const ch = OF.farkleChance(p.available);
+      risk.innerHTML = 'Farkle chance on a ' + p.available + '-die roll: <b>' + (ch * 100).toFixed(ch < 0.1 && ch > 0 ? 1 : 0) + '%</b>';
+    } else if (cfg.showFarkleRisk && phase === 'select' && selected.length && currentSelection()) {
+      let left = p.available - selected.length;
+      if (left === 0 && cfg.hotDice) left = 6;
+      const ch = OF.farkleChance(left);
+      risk.innerHTML = left ? 'Next roll would be ' + left + ' dice: <b>' + (ch * 100).toFixed(ch < 0.1 && ch > 0 ? 1 : 0) + '%</b> farkle chance' : 'No dice left after this: you will have to launch.';
+    } else risk.innerHTML = '';
+  }
+
+  function bind(id, fn) {
+    const el = $(id);
+    if (el) el.addEventListener('click', fn);
+  }
+
+  function renderValues() {
+    $('mode-tag').textContent = cfg.scoringMode === 'pooled' ? 'pooled scoring' : 'per-hand scoring';
+    let rows = '<tr><th>Hand</th><th>Dice</th><th class="num">Base</th><th class="num">With power-ups</th></tr>';
+    OF.HAND_DEFS.forEach(function (h) {
+      const base = cfg.hands[h.id];
+      const v = OF.handValue(h.id, cfg);
+      rows += '<tr><td>' + h.name + '</td><td style="color:var(--muted)">' + OF.HAND_DICE_TEXT[h.id] + '</td>' +
+        '<td class="num">' + cmHtml(base.chips, base.mult) + '</td>' +
+        '<td class="num">' + cmHtml(v.chips, v.mult) + (v.boosts.length ? '<br><span class="boost">' + v.boosts.join(', ') + '</span>' : '') + '</td></tr>';
+    });
+    $('values').innerHTML = rows;
+    $('formula').innerHTML = cfg.scoringMode === 'pooled'
+      ? 'At launch the pad resolves as <b>(total chips) × (total mult)</b> across every cached hand. Longer burns grow faster than linearly.'
+      : 'At launch each cached hand resolves as its own <b>chips × mult</b>, and the results are added.';
+
+    const p = cfg.powerups;
+    $('powerups').innerHTML =
+      '<div class="pu' + (p.single.enabled ? '' : ' off') + '"><span>⚡ Single booster</span><span>Singles: +' + p.single.chips + ' chips</span></div>' +
+      '<div class="pu' + (p.run.enabled ? '' : ' off') + '"><span>🌀 Run booster</span><span>Small/medium straights: +' + p.run.mult + ' mult</span></div>' +
+      '<div class="pu' + (p.set.enabled ? '' : ' off') + '"><span>💎 Set booster</span><span>Pairs & of-a-kinds: ×' + p.set.xmult + ' mult</span></div>';
+
+    const th = OF.gaugeThresholds(cfg);
+    const names = [];
+    for (let t = 1; t <= cfg.gaugeTiers; t++) {
+      const lo = t === 1 ? 0 : th[t - 2];
+      const hi = t - 1 < th.length ? th[t - 1] : null;
+      const nm = OF.gaugeTier(t === 1 ? 0 : lo, 1, cfg).name;
+      names.push('<b style="color:var(--text)">' + nm + '</b> ' + (hi === null ? fmt(lo) + '+' : fmt(lo) + '–' + fmt(hi)));
+    }
+    $('tiers').innerHTML = names.join(' · ') + '<br>The gauge shows a tier, never the exact launch total.';
+  }
+
+  function renderLog() {
+    $('log').innerHTML = roundLog.map(function (r) {
+      return '<div><span class="r">R' + r.round + '</span> You: ' + describeTurn(r.player, true) + ' &nbsp;|&nbsp; AI: ' + describeTurn(r.ai, true) + '</div>';
+    }).join('') || '<div style="color:var(--muted)">Nothing yet.</div>';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Modals
+  // ---------------------------------------------------------------------------
+
+  let modalOnEnter = null;
+  let revealTimers = [];
+
+  function openModal(html, onEnter) {
+    $('modal').innerHTML = html;
+    $('overlay').hidden = false;
+    modalOnEnter = onEnter || null;
+  }
+  function closeModal() {
+    revealTimers.forEach(clearTimeout);
+    revealTimers = [];
+    $('overlay').hidden = true;
+    $('modal').innerHTML = '';
+    modalOnEnter = null;
+  }
+
+  function turnCard(who, t, idPrefix) {
+    let cls = 'card';
+    let body = '';
+    if (t.type === 'cache') {
+      body = '<div class="big" style="color:var(--accent)">Cached</div>' +
+        '<div>' + t.hands.map(function (h) { return h.label + ' ' + cmHtml(h.chips, h.mult); }).join('<br>') + '</div>' +
+        '<div class="muted">Rolled ' + t.roll.join(' ') + (t.hot ? ' · <b style="color:var(--accent)">Hot dice! Six dice return.</b>' : ' · ' + t.diceLeft + ' dice left') + '</div>';
+    } else if (t.type === 'farkle') {
+      cls += ' farkle';
+      body = '<div class="big" style="color:var(--bad)">Farkle!</div><div class="muted">Rolled ' + t.roll.join(' ') + ' with no scoring hand.</div>';
+      if (t.handsLost.length) {
+        body += '<div>Pad destroyed: ' + t.handsLost.length + ' hand' + (t.handsLost.length === 1 ? '' : 's') + '.</div>' +
+          '<div class="muted">It would have launched for <b style="color:var(--text)">' + fmt(t.lost.total) + '</b>.</div>';
+      }
+    } else if (t.type === 'launch') {
+      cls += ' launch';
+      const r = t.resolution;
+      body = '<div class="big" style="color:var(--good)">Launch!</div><ul class="steps" id="' + idPrefix + '-steps">' +
+        r.steps.map(function (s) {
+          return '<li><span>' + s.label + '</span><span>' +
+            (r.mode === 'pooled' ? '+<span class="cm"><span class="c">' + s.chips + '</span></span> / +<span class="cm"><span class="m">' + s.mult + '</span></span>'
+              : cmHtml(s.chips, s.mult) + ' = ' + fmt(s.own)) + '</span></li>';
+        }).join('') + '</ul>' +
+        '<div class="resolve">' +
+        (r.mode === 'pooled' ? '<span id="' + idPrefix + '-cm">' + cmHtml(0, 0) + '</span>' : '<span id="' + idPrefix + '-cm">' + fmt(0) + '</span>') +
+        '<span class="total" id="' + idPrefix + '-total">= ' + fmt(r.total) + '</span></div>' +
+        '<div class="muted" style="text-align:center">Banked ' + fmt(t.before) + ' → <b style="color:var(--text)">' + fmt(t.after) + '</b></div>';
+    }
+    const why = t.reason ? '<div class="why">“' + t.reason + '”</div>' : '';
+    return '<div class="' + cls + '"><h4><span>' + who + '</span></h4>' + body + why + '</div>';
+  }
+
+  function animateLaunch(idPrefix, t, delay) {
+    if (t.type !== 'launch') return delay;
+    const r = t.resolution;
+    const items = document.querySelectorAll('#' + idPrefix + '-steps li');
+    const cm = $(idPrefix + '-cm');
+    r.steps.forEach(function (s, i) {
+      delay += 380;
+      revealTimers.push(setTimeout(function () {
+        if (items[i]) items[i].classList.add('show');
+        if (cm) cm.innerHTML = r.mode === 'pooled' ? cmHtml(s.runChips, s.runMult) : fmt(s.runOwn);
+      }, delay));
+    });
+    delay += 450;
+    revealTimers.push(setTimeout(function () {
+      const tot = $(idPrefix + '-total');
+      if (tot) tot.classList.add('show');
+    }, delay));
+    return delay;
+  }
+
+  function showReveal(res) {
+    let title = 'Round ' + res.round + ' results';
+    let note = '';
+    if (res.result === 'tie') {
+      note = '<div class="card" style="margin-top:12px;border-color:var(--accent)"><b>Both ships reached orbit in the same round!</b> It is a tie, so another round is played. After it, the higher banked score wins.</div>';
+    }
+    openModal(
+      '<h3>' + title + '</h3><div class="row">' + turnCard('You', res.player, 'rp') + turnCard('Opponent', res.ai, 'ra') + '</div>' + note +
+      '<div class="foot"><button class="primary" id="m-next">' + (match.over ? 'See result' : 'Next round') + '<kbd>Enter</kbd></button></div>',
+      afterReveal
+    );
+    bind('m-next', afterReveal);
+    let d = animateLaunch('rp', res.player, 100);
+    animateLaunch('ra', res.ai, res.player.type === 'launch' ? d : 100);
+  }
+
+  function showGameOver() {
+    const w = match.winner;
+    const title = w === 'player' ? 'You reached orbit first! 🎉' : 'The opponent reached orbit first.';
+    const q = function (name, text) {
+      let s = '<label>' + text + '<div class="scale">';
+      for (let i = 1; i <= 5; i++) s += '<label><input type="radio" name="' + name + '" value="' + i + '">' + i + '</label>';
+      return s + '</div><span style="color:var(--muted);font-size:12px">1 = not at all · 5 = completely</span></label>';
+    };
+    openModal(
+      '<div class="winbox"><h3>' + title + '</h3>' +
+      '<div class="big">' + fmt(match.player.banked) + ' – ' + fmt(match.ai.banked) + '</div>' +
+      '<div style="color:var(--muted)">' + match.round + ' rounds</div></div>' +
+      '<form class="survey" id="survey"><b>Quick questions (optional, saved to the playtest log)</b>' +
+      q('q_bet', 'Launching felt like a bet, not a routine.') +
+      q('q_opp', 'The opponent\'s score changed when I launched.') +
+      q('q_fair', 'Losses felt explained by my own choices.') +
+      '<label>After a farkle, what should you have done? (or anything else)<textarea name="q_note"></textarea></label></form>' +
+      '<div class="foot"><button id="m-log">Playtest log</button><button class="primary" id="m-again">Save & play again<kbd>Enter</kbd></button></div>',
+      function () { saveSurvey(); newMatch(); }
+    );
+    bind('m-again', function () { saveSurvey(); newMatch(); });
+    bind('m-log', function () { saveSurvey(); showStats(); });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Playtest logging
+  // ---------------------------------------------------------------------------
+
+  function tester() {
+    return lsGet(LS_TESTER, '') || '';
+  }
+
+  function saveMatch(abandoned) {
+    const logs = lsGet(LS_LOGS, []);
+    const burns = match.log.burns.map(function (b) {
+      return {
+        side: b.side, startRound: b.startRound, endRound: b.endRound, caches: b.caches, rolls: b.rolls, hotDice: b.hotDice,
+        outcome: b.outcome, total: b.total, diffAtStart: b.diffAtStart, diffAtEnd: b.diffAtEnd, trailing: b.trailing,
+      };
+    });
+    let comeback = false;
+    if (!abandoned && match.winner) {
+      const wins = burns.filter(function (b) { return b.side === match.winner && b.outcome === 'launch'; });
+      const last = wins[wins.length - 1];
+      comeback = !!(last && last.trailing && last.caches >= 3);
+    }
+    logs.push({
+      id: Date.now().toString(36),
+      tester: tester(),
+      startedAt: new Date(match.log.startedAt).toISOString(),
+      endedAt: new Date().toISOString(),
+      abandoned: !!abandoned,
+      winner: abandoned ? null : match.winner,
+      rounds: match.round,
+      playerBanked: match.player.banked,
+      aiBanked: match.ai.banked,
+      comeback: comeback,
+      config: { targetScore: cfg.targetScore, scoringMode: cfg.scoringMode, gaugeTiers: cfg.gaugeTiers, hotDice: cfg.hotDice, showFarkleRisk: cfg.showFarkleRisk },
+      burns: burns,
+      roundLog: match.log.rounds,
+      survey: null,
+    });
+    lsSet(LS_LOGS, logs);
+    matchSaved = true;
+  }
+
+  function saveSurvey() {
+    const form = $('survey');
+    if (!form) return;
+    const data = {};
+    let any = false;
+    ['q_bet', 'q_opp', 'q_fair'].forEach(function (k) {
+      const el = form.querySelector('input[name=' + k + ']:checked');
+      data[k] = el ? +el.value : null;
+      if (el) any = true;
+    });
+    data.q_note = form.querySelector('textarea').value.trim();
+    if (data.q_note) any = true;
+    if (!any) return;
+    const logs = lsGet(LS_LOGS, []);
+    if (logs.length) {
+      logs[logs.length - 1].survey = data;
+      lsSet(LS_LOGS, logs);
+    }
+  }
+
+  function computeStats(logs) {
+    const done = logs.filter(function (m) { return !m.abandoned; });
+    const pb = [];
+    logs.forEach(function (m) {
+      m.burns.forEach(function (b) { if (b.side === 'player' && b.outcome !== 'matchEnd') pb.push(b); });
+    });
+    const launched = pb.filter(function (b) { return b.outcome === 'launch'; });
+    const avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null; };
+    const trailing = pb.filter(function (b) { return b.trailing; }).map(function (b) { return b.caches; });
+    const leading = pb.filter(function (b) { return !b.trailing; }).map(function (b) { return b.caches; });
+    return {
+      matches: done.length,
+      wins: done.filter(function (m) { return m.winner === 'player'; }).length,
+      burns: pb.length,
+      long: launched.length ? launched.filter(function (b) { return b.caches >= 3; }).length / launched.length : null,
+      farkleRate: pb.length ? pb.filter(function (b) { return b.outcome === 'farkle'; }).length / pb.length : null,
+      avgLaunch: avg(launched.map(function (b) { return b.total; })),
+      trailingCaches: avg(trailing),
+      leadingCaches: avg(leading),
+      trailingN: trailing.length,
+      leadingN: leading.length,
+      comebacks: done.length ? done.filter(function (m) { return m.comeback; }).length / done.length : null,
+      avgRounds: avg(done.map(function (m) { return m.rounds; })),
+    };
+  }
+
+  function showStats() {
+    const logs = lsGet(LS_LOGS, []);
+    const s = computeStats(logs);
+    const pct = function (x) { return x === null ? '–' : Math.round(x * 100) + '%'; };
+    const num = function (x, d) { return x === null ? '–' : x.toFixed(d || 0); };
+    const pass = function (ok, text) { return ok === null ? '' : '<div class="' + (ok ? 'pass' : 'fail') + '">' + (ok ? '✓ ' : '✗ ') + text + '</div>'; };
+    const stat = function (v, k, extra) { return '<div class="stat"><div class="v">' + v + '</div><div class="k">' + k + '</div>' + (extra || '') + '</div>'; };
+    openModal(
+      '<h3>Playtest log</h3>' +
+      '<div class="form" style="margin-bottom:12px"><label>Tester name (saved with each match)<input type="text" id="tester" value="' + escapeHtml(tester()) + '" style="background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px;font:inherit"></label></div>' +
+      '<div class="stats">' +
+      stat(s.matches + ' <small style="font-size:13px;color:var(--muted)">(' + s.wins + ' won)</small>', 'Completed matches on this browser') +
+      stat(pct(s.long), 'Your launched burns with 3+ cache turns', pass(s.long === null ? null : s.long >= 0.4, 'target ≥ 40%')) +
+      stat(num(s.trailingCaches, 2) + ' vs ' + num(s.leadingCaches, 2), 'Avg cache turns per burn: trailing vs leading (n=' + s.trailingN + ' / ' + s.leadingN + ')',
+        pass(s.trailingCaches === null || s.leadingCaches === null ? null : s.trailingCaches > s.leadingCaches, 'trailing should go longer')) +
+      stat(pct(s.comebacks), 'Matches won by a trailing ship after a 3+ cache burn', pass(s.comebacks === null ? null : s.comebacks >= 0.25, 'target ≥ 1 in 4')) +
+      stat(pct(s.farkleRate), 'Your farkle rate (per burn)') +
+      stat(num(s.avgLaunch), 'Your average launch size') +
+      stat(num(s.avgRounds, 1), 'Average rounds per match') +
+      stat(s.burns, 'Your burns logged') +
+      '</div>' +
+      '<p style="color:var(--muted);font-size:13px">Logs live in this browser only (localStorage). Export them to collect results from each tester.</p>' +
+      '<div class="foot"><button id="s-clear">Clear log</button><button id="s-csv">Export burns CSV</button><button id="s-json">Export JSON</button><button class="primary" id="s-close">Close<kbd>Esc</kbd></button></div>',
+      null
+    );
+    $('tester').addEventListener('change', function (e) { lsSet(LS_TESTER, e.target.value.trim()); });
+    bind('s-close', function () { closeModal(); if (phase === 'over') showGameOver(); });
+    bind('s-json', function () { download('orbital-farkle-log.json', JSON.stringify(lsGet(LS_LOGS, []), null, 2), 'application/json'); });
+    bind('s-csv', function () { download('orbital-farkle-burns.csv', burnsCsv(lsGet(LS_LOGS, [])), 'text/csv'); });
+    bind('s-clear', function () {
+      if (confirm('Delete every logged match on this browser?')) { lsSet(LS_LOGS, []); showStats(); }
+    });
+  }
+
+  function burnsCsv(logs) {
+    const cols = ['matchId', 'tester', 'winner', 'side', 'startRound', 'endRound', 'caches', 'rolls', 'hotDice', 'outcome', 'total', 'diffAtStart', 'diffAtEnd', 'trailing', 'targetScore', 'scoringMode'];
+    const rows = [cols.join(',')];
+    logs.forEach(function (m) {
+      m.burns.forEach(function (b) {
+        const r = Object.assign({ matchId: m.id, tester: m.tester, winner: m.winner, targetScore: m.config.targetScore, scoringMode: m.config.scoringMode }, b);
+        rows.push(cols.map(function (c) { const v = r[c]; return v === null || v === undefined ? '' : JSON.stringify(v); }).join(','));
+      });
+    });
+    return rows.join('\n');
+  }
+
+  function download(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: type }));
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tuning panel
+  // ---------------------------------------------------------------------------
+
+  function showTuning() {
+    const c = loadConfig();
+    let handRows = '<tr><th>Hand</th><th>Chips</th><th>Mult</th></tr>';
+    OF.HAND_DEFS.forEach(function (h) {
+      handRows += '<tr><td>' + h.name + '</td><td><input type="number" min="0" step="1" data-hand="' + h.id + '" data-k="chips" value="' + c.hands[h.id].chips + '"></td>' +
+        '<td><input type="number" min="0" step="0.5" data-hand="' + h.id + '" data-k="mult" value="' + c.hands[h.id].mult + '"></td></tr>';
+    });
+    openModal(
+      '<h3>Tuning dials</h3><p style="color:var(--muted);font-size:13px;margin-top:0">Changes apply when you save, and restart the match. Saved in this browser.</p>' +
+      '<form class="form" id="tune">' +
+      '<label>Target score (orbital velocity)<input type="number" name="targetScore" min="100" step="100" value="' + c.targetScore + '"></label>' +
+      '<label>Scoring at launch<select name="scoringMode"><option value="pooled"' + (c.scoringMode === 'pooled' ? ' selected' : '') + '>Pooled: total chips × total mult</option><option value="perHand"' + (c.scoringMode === 'perHand' ? ' selected' : '') + '>Per hand: sum of each chips × mult</option></select></label>' +
+      '<label>Gauge tiers (granularity)<input type="number" name="gaugeTiers" min="2" max="12" step="1" value="' + c.gaugeTiers + '"></label>' +
+      '<label class="inline"><input type="checkbox" name="hotDice"' + (c.hotDice ? ' checked' : '') + '>Hot dice (all six return when every die is cached)</label>' +
+      '<label class="inline"><input type="checkbox" name="showFarkleRisk"' + (c.showFarkleRisk ? ' checked' : '') + '>Show farkle chance for the next roll</label>' +
+      '<h4>Power-ups</h4>' +
+      '<label class="inline"><input type="checkbox" name="pu_single"' + (c.powerups.single.enabled ? ' checked' : '') + '>Single booster: + chips <input type="number" name="pu_single_v" min="0" step="1" value="' + c.powerups.single.chips + '" style="width:70px"></label>' +
+      '<label class="inline"><input type="checkbox" name="pu_run"' + (c.powerups.run.enabled ? ' checked' : '') + '>Run booster: + mult <input type="number" name="pu_run_v" min="0" step="0.5" value="' + c.powerups.run.mult + '" style="width:70px"></label>' +
+      '<label class="inline"><input type="checkbox" name="pu_set"' + (c.powerups.set.enabled ? ' checked' : '') + '>Set booster: × mult <input type="number" name="pu_set_v" min="1" step="0.1" value="' + c.powerups.set.xmult + '" style="width:70px"></label>' +
+      '<span></span>' +
+      '<h4>AI</h4>' +
+      '<label>Base launch point (share of target)<input type="number" name="ai_base" min="0.02" max="1" step="0.01" value="' + c.ai.baseLaunchShare + '"></label>' +
+      '<label>Leading: launch-point factor (&lt;1 = earlier)<input type="number" name="ai_lead" min="0.1" max="2" step="0.05" value="' + c.ai.leadingFactor + '"></label>' +
+      '<label>Trailing: max launch-point factor (&gt;1 = later)<input type="number" name="ai_trail" min="1" max="4" step="0.1" value="' + c.ai.trailingMax + '"></label>' +
+      '<label>Randomness per burn (±)<input type="number" name="ai_jitter" min="0" max="0.9" step="0.05" value="' + c.ai.jitter + '"></label>' +
+      '<h4>Base hand values</h4>' +
+      '<table class="values edit" style="grid-column:1/-1">' + handRows + '</table>' +
+      '</form>' +
+      '<div class="foot"><button id="t-reset">Reset to defaults</button><button id="t-cancel">Cancel</button><button class="primary" id="t-save">Save & restart</button></div>',
+      null
+    );
+    bind('t-cancel', closeModal);
+    bind('t-reset', function () {
+      try { localStorage.removeItem(LS_CONFIG); } catch (e) { /* ignore */ }
+      newMatch();
+    });
+    bind('t-save', function () {
+      const f = $('tune');
+      const val = function (n) { return parseFloat(f.elements[n].value); };
+      const chk = function (n) { return f.elements[n].checked; };
+      const over = {
+        targetScore: Math.max(100, val('targetScore') || 2500),
+        scoringMode: f.elements.scoringMode.value,
+        gaugeTiers: Math.min(12, Math.max(2, Math.round(val('gaugeTiers')) || 5)),
+        hotDice: chk('hotDice'),
+        showFarkleRisk: chk('showFarkleRisk'),
+        powerups: {
+          single: { enabled: chk('pu_single'), chips: val('pu_single_v') || 0 },
+          run: { enabled: chk('pu_run'), mult: val('pu_run_v') || 0 },
+          set: { enabled: chk('pu_set'), xmult: val('pu_set_v') || 1 },
+        },
+        ai: { baseLaunchShare: val('ai_base'), leadingFactor: val('ai_lead'), trailingMax: val('ai_trail'), jitter: val('ai_jitter') },
+        hands: {},
+      };
+      f.querySelectorAll('input[data-hand]').forEach(function (inp) {
+        const id = inp.dataset.hand;
+        over.hands[id] = over.hands[id] || {};
+        over.hands[id][inp.dataset.k] = Math.max(0, parseFloat(inp.value) || 0);
+      });
+      lsSet(LS_CONFIG, over);
+      newMatch();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rules
+  // ---------------------------------------------------------------------------
+
+  function showRules() {
+    openModal(
+      '<h3>How to play</h3><div class="rules"><ul>' +
+      '<li><b>Race to orbit.</b> First ship to bank <b>' + fmt(cfg.targetScore) + '</b> points wins.</li>' +
+      '<li><b>Simultaneous rounds.</b> Each round you and the AI each take one turn at the same time. The AI locks in before seeing yours; results are revealed together.</li>' +
+      '<li><b>Your turn is one of:</b><ol>' +
+      '<li><b>Roll and cache</b>: roll your live dice, select one or more scoring hands, and cache them on your launch pad.</li>' +
+      '<li><b>Roll and farkle</b>: no scoring hand in the roll. Your whole pad is destroyed. The turn is still used.</li>' +
+      '<li><b>Launch</b>: your pad resolves as chips × mult and is banked. The pad empties and the next burn starts with six dice.</li></ol></li>' +
+      '<li><b>Nothing scores until launch.</b> You see your cached hands by name and a coarse thrust gauge, never the exact total.</li>' +
+      '<li><b>Hot dice:</b> cache all six dice and they all come back for the same burn.</li>' +
+      '<li><b>Tempo:</b> a launch costs a whole turn. A burn of N hands takes N + 1 turns. Long burns are efficient but risk a farkle.</li>' +
+      '<li><b>Ties:</b> if both ships reach orbit in the same round, another round is played; then the higher banked score wins.</li>' +
+      '</ul><p style="color:var(--muted)">Keys: <kbd>R</kbd> roll · <kbd>L</kbd> launch · <kbd>1</kbd>–<kbd>6</kbd> select dice · <kbd>Enter</kbd> confirm / continue · <kbd>Esc</kbd> close</p></div>' +
+      '<div class="foot"><button class="primary" id="r-close">Got it<kbd>Enter</kbd></button></div>',
+      closeModal
+    );
+    bind('r-close', closeModal);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Wiring
+  // ---------------------------------------------------------------------------
+
+  bind('btn-rules', showRules);
+  bind('btn-tuning', showTuning);
+  bind('btn-stats', showStats);
+  bind('btn-restart', function () {
+    if (match.round <= 1 || phase === 'over' || confirm('Restart the match? Progress is logged as abandoned.')) newMatch();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target && e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return;
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
+    const modalOpen = !$('overlay').hidden;
+    if (modalOpen) {
+      if (e.key === 'Enter' && modalOnEnter) { e.preventDefault(); modalOnEnter(); }
+      else if (e.key === 'Escape' && phase !== 'reveal' && phase !== 'over') closeModal();
+      return;
+    }
+    const k = e.key.toLowerCase();
+    if (k === 'r') onRoll();
+    else if (k === 'l') onLaunch();
+    else if (k >= '1' && k <= '6') toggleDie(+k - 1);
+    else if (k === 'enter' || k === 'c') {
+      e.preventDefault();
+      if (phase === 'select') onCache();
+      else if (phase === 'farkled') onFarkleContinue();
+    }
+  });
+
+  newMatch();
+  if (!lsGet('orbitalFarkle.seenRules', false)) {
+    lsSet('orbitalFarkle.seenRules', true);
+    showRules();
+  }
+})();
+</script>
+</body>
+</html>
