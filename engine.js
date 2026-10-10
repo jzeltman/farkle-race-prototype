@@ -13,11 +13,12 @@
     // id, display name, family, base chips, base mult
     { id: 'single1', name: 'Single 1', family: 'single', chips: 10, mult: 1 },
     { id: 'single5', name: 'Single 5', family: 'single', chips: 5, mult: 1 },
-    { id: 'pair', name: 'Pair', family: 'set', chips: 15, mult: 2 },
+    { id: 'twoPair', name: 'Two pair', family: 'set', chips: 25, mult: 3 },
     { id: 'three', name: 'Three of a kind', family: 'set', chips: 30, mult: 3 },
     { id: 'four', name: 'Four of a kind', family: 'set', chips: 60, mult: 4 },
     { id: 'five', name: 'Five of a kind', family: 'set', chips: 100, mult: 5 },
     { id: 'six', name: 'Six of a kind', family: 'set', chips: 150, mult: 7 },
+    { id: 'fullHouse', name: 'Full house', family: 'set', chips: 50, mult: 4 },
     { id: 'smallStraight', name: 'Small straight', family: 'run', chips: 30, mult: 3 },
     { id: 'mediumStraight', name: 'Medium straight', family: 'run', chips: 50, mult: 4 },
     { id: 'fullStraight', name: 'Full straight', family: 'run', chips: 80, mult: 6 },
@@ -28,15 +29,16 @@
   const HAND_DICE_TEXT = {
     single1: '1 die (a 1)',
     single5: '1 die (a 5)',
-    pair: '2 matching',
+    twoPair: '2 different pairs',
     three: '3 matching',
     four: '4 matching',
     five: '5 matching',
     six: '6 matching',
+    fullHouse: '3 matching + a different pair',
     smallStraight: '4 in sequence',
     mediumStraight: '5 in sequence',
     fullStraight: '1-2-3-4-5-6',
-    threePairs: '3 different pairs',
+    threePairs: '3 pairs (or 4 of a kind + a pair)',
     twoTriplets: '2 different triples',
   };
 
@@ -60,7 +62,7 @@
         set: {
           enabled: true,
           xmult: 1.5,
-          appliesTo: ['pair', 'three', 'four', 'five', 'six', 'threePairs', 'twoTriplets'],
+          appliesTo: ['twoPair', 'three', 'four', 'five', 'six', 'fullHouse', 'threePairs', 'twoTriplets'],
         },
       },
       ai: {
@@ -168,6 +170,15 @@
 
   function handLabel(id, dice) {
     const h = HAND_BY_ID[id];
+    if (id === 'twoPair' || id === 'fullHouse') {
+      const c = {};
+      dice.forEach(function (v) { c[v] = (c[v] || 0) + 1; });
+      const faces = Object.keys(c).map(Number).sort();
+      if (id === 'twoPair') return h.name + ' (' + faces[0] + 's & ' + faces[1] + 's)';
+      const trip = faces.filter(function (f) { return c[f] === 3; })[0];
+      const pr = faces.filter(function (f) { return c[f] === 2; })[0];
+      return h.name + ' (' + trip + 's over ' + pr + 's)';
+    }
     if (h.family === 'set' && id !== 'threePairs' && id !== 'twoTriplets') {
       return h.name + ' (' + dice[0] + 's)';
     }
@@ -215,21 +226,30 @@
         best = { list: list.slice(), score: s };
       }
     }
-    if (n === 6) {
-      const nz = counts.filter(function (c) {
-        return c > 0;
-      });
-      if (nz.length === 3 && nz.every(function (c) { return c === 2; })) consider([makeHand('threePairs', values, cfg)]);
-      if (nz.length === 2 && nz.every(function (c) { return c === 3; })) consider([makeHand('twoTriplets', values, cfg)]);
-    }
-    const kinds = { 2: 'pair', 3: 'three', 4: 'four', 5: 'five', 6: 'six' };
+    // Single pairs don't score; pairs only count inside two pair, full house and three pairs.
+    const kinds = { 3: 'three', 4: 'four', 5: 'five', 6: 'six' };
     const straights = [
       [4, 'smallStraight'],
       [5, 'mediumStraight'],
       [6, 'fullStraight'],
     ];
     const acc = [];
-    (function recurse() {
+    // Take parts ([[face, count], ...]) out of counts as one hand, recurse, then put them back.
+    function tryHand(id, parts) {
+      for (let i = 0; i < parts.length; i++) if (counts[parts[i][0]] < parts[i][1]) return;
+      const dice = [];
+      parts.forEach(function (pt) {
+        counts[pt[0]] -= pt[1];
+        for (let i = 0; i < pt[1]; i++) dice.push(pt[0]);
+      });
+      acc.push(makeHand(id, dice, cfg));
+      recurse();
+      acc.pop();
+      parts.forEach(function (pt) {
+        counts[pt[0]] += pt[1];
+      });
+    }
+    function recurse() {
       let f = 1;
       while (f <= 6 && counts[f] === 0) f++;
       if (f > 6) {
@@ -244,12 +264,19 @@
         acc.pop();
         counts[f]++;
       }
-      for (let k = 2; k <= Math.min(counts[f], 6); k++) {
-        counts[f] -= k;
-        acc.push(makeHand(kinds[k], new Array(k).fill(f), cfg));
-        recurse();
-        acc.pop();
-        counts[f] += k;
+      for (let k = 3; k <= Math.min(counts[f], 6); k++) {
+        tryHand(kinds[k], [[f, k]]);
+      }
+      // Multi-face set hands built from f and higher faces g < h.
+      for (let g = f + 1; g <= 6; g++) {
+        tryHand('twoPair', [[f, 2], [g, 2]]);
+        tryHand('fullHouse', [[f, 3], [g, 2]]);
+        tryHand('fullHouse', [[f, 2], [g, 3]]);
+        tryHand('twoTriplets', [[f, 3], [g, 3]]);
+        for (let h = g + 1; h <= 6; h++) tryHand('threePairs', [[f, 2], [g, 2], [h, 2]]);
+        // Four of a kind plus a pair also counts as three pairs.
+        tryHand('threePairs', [[f, 4], [g, 2]]);
+        tryHand('threePairs', [[f, 2], [g, 4]]);
       }
       straights.forEach(function (st) {
         const len = st[0];
@@ -265,7 +292,8 @@
         acc.pop();
         for (let i = f; i < f + len; i++) counts[i]++;
       });
-    })();
+    }
+    recurse();
     return best ? best.list : null;
   }
 
@@ -276,7 +304,12 @@
       counts[v]++;
     });
     if (counts[1] || counts[5]) return true;
-    for (let f = 1; f <= 6; f++) if (counts[f] >= 2) return true;
+    let pairs = 0;
+    for (let f = 1; f <= 6; f++) {
+      if (counts[f] >= 3) return true;
+      if (counts[f] >= 2) pairs++;
+    }
+    if (pairs >= 2) return true; // two pair
     for (let s = 1; s <= 3; s++) {
       if (counts[s] && counts[s + 1] && counts[s + 2] && counts[s + 3]) return true;
     }

@@ -15,8 +15,8 @@ No build step and no dependencies.
 - Simultaneous rounds. The AI commits to roll or launch before it sees your move, then both results are revealed together.
 - Turn types: **roll and cache**, **roll and farkle** (your pad is destroyed), and **launch** (the pad resolves and is banked).
 - Hot dice: cache all six dice and all six come back.
-- The full hand set: singles (1, 5), pair, three to six of a kind, small, medium and full straights, three pairs, and two triplets.
-- Three power-ups, the same on both ships: Single booster (+10 chips), Run booster (+2 mult on small and medium straights), and Set booster (×1.5 mult on pairs and of-a-kinds).
+- The hand set: singles (1, 5), three to six of a kind, two pair, full house, small, medium and full straights, three pairs (four of a kind plus a pair also counts), and two triplets. A lone pair doesn't score.
+- Three power-ups, the same on both ships: Single booster (+10 chips), Run booster (+2 mult on small and medium straights), and Set booster (×1.5 mult on of-a-kinds, two pair, full house, three pairs and two triplets).
 - A coarse thrust gauge for both pads (5 tiers by default). It never shows the exact pending total.
 - The opponent's banked score, its last turn, and the AI's one-line reason, all shown after each round.
 - A launch reveal that adds up chips and mult hand by hand, then shows the total.
@@ -50,14 +50,14 @@ These are starting guesses. You can change all of them in the Tuning panel.
 | Call | Default | Why |
 | --- | --- | --- |
 | How a pad resolves | **Pooled**: (sum of chips) × (sum of mult) | Matches Balatro. Totals grow faster than linearly, so they are hard to calculate exactly but still possible to estimate. A per-hand mode is available to compare. |
-| Base values | Single 1 10×1, Single 5 5×1, Pair 15×2, 3-kind 30×3, 4-kind 60×4, 5-kind 100×5, 6-kind 150×7, Small straight 30×3, Medium 50×4, Full 80×6, Three pairs 60×6, Two triplets 100×7 | Single 5 comes from the PRD. The rest are placeholders. |
+| Base values | Single 1 10×1, Single 5 5×1, Two pair 25×3, 3-kind 30×3, 4-kind 60×4, Full house 50×4, 5-kind 100×5, 6-kind 150×7, Small straight 30×3, Medium 50×4, Full 80×6, Three pairs 60×6, Two triplets 100×7 | Single 5 comes from the PRD. The rest are placeholders. |
 | Target score | 2,500 | In AI-vs-AI sims a match lasts about 13 rounds. |
 | Splitting a selection into hands | Automatic: the best-scoring split of the selected dice | This means players never lose points to how they labelled their dice. |
 | Farkle-chance readout | On | Supports the fairness test ("I should have stopped at X"). It shows risk, not the total. Turn it off in Tuning to test without it. |
 | After a farkle | The reveal shows what the lost pad would have launched for | This helps players calibrate their estimates over time. |
 | Ties | Both ships reach orbit in the same round → overtime. The higher banked score at the end of a later round wins. | |
 
-Because pairs score, a roll of 5 or 6 dice can never farkle. The risk starts at 4 dice or fewer (2%, 11%, 33% and 67% for 4, 3, 2 and 1 dice).
+Lone pairs are out of the hand set because they made rolls of 5 or 6 dice impossible to farkle, and a single nudge could turn almost any die into one. The farkle chance is now 3%, 13%, 28%, 44% and 67% for 5, 4, 3, 2 and 1 dice. Six dice still can't farkle.
 
 ## Files
 

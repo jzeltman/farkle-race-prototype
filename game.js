@@ -433,7 +433,7 @@
     $('powerups').innerHTML =
       '<div class="pu' + (p.single.enabled ? '' : ' off') + '"><span>⚡ Single booster</span><span>Singles: +' + p.single.chips + ' chips</span></div>' +
       '<div class="pu' + (p.run.enabled ? '' : ' off') + '"><span>🌀 Run booster</span><span>Small/medium straights: +' + p.run.mult + ' mult</span></div>' +
-      '<div class="pu' + (p.set.enabled ? '' : ' off') + '"><span>💎 Set booster</span><span>Pairs & of-a-kinds: ×' + p.set.xmult + ' mult</span></div>';
+      '<div class="pu' + (p.set.enabled ? '' : ' off') + '"><span>💎 Set booster</span><span>Of-a-kinds, two pair, full house, three pairs, two triplets: ×' + p.set.xmult + ' mult</span></div>';
 
     const th = OF.gaugeThresholds(cfg);
     const names = [];
