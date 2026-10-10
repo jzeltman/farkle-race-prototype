@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orbital Farkle</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🚀 Orbital Farkle</h1>
+    <div class="meta">
+      <span>Round <b id="round">1</b></span>
+      <span>Orbit at <b id="target">0</b></span>
+      <span id="overtime" hidden><b style="color:var(--accent)">OVERTIME</b></span>
+    </div>
+    <div class="spacer"></div>
+    <div class="tools">
+      <button class="ghost" id="btn-rules">Rules</button>
+      <button class="ghost" id="btn-tuning">Tuning</button>
+      <button class="ghost" id="btn-stats">Playtest log</button>
+      <button id="btn-restart">Restart</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel ship" id="side-player"></section>
+
+    <section id="center">
+      <div class="status" id="status"></div>
+      <div class="tray" id="tray"></div>
+      <div class="selinfo" id="selinfo"></div>
+      <div class="actions" id="actions"></div>
+      <div class="risk" id="risk"></div>
+    </section>
+
+    <section class="panel ship" id="side-ai"></section>
+
+    <div class="bottom">
+      <section class="panel">
+        <h2>Hand values <span class="tag" id="mode-tag"></span></h2>
+        <table class="values" id="values"></table>
+        <div class="formula" id="formula"></div>
+      </section>
+      <section class="panel">
+        <h2>Power-ups <span class="tag">same loadout on both ships</span></h2>
+        <div class="powerups" id="powerups"></div>
+        <h2 style="margin-top:14px">Thrust gauge tiers</h2>
+        <div class="formula" id="tiers" style="margin-top:0"></div>
+        <h2 style="margin-top:14px">Round log</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="overlay" id="overlay" hidden>
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

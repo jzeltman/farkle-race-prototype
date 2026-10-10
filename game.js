@@ -1,0 +1,725 @@
+/* Orbital Farkle — browser UI. Depends on engine.js (window.OF). */
+(function () {
+  'use strict';
+
+  const OF = window.OF;
+  const $ = function (id) { return document.getElementById(id); };
+  const fmt = function (n) { return Math.round(n).toLocaleString(); };
+
+  // ---------------------------------------------------------------------------
+  // Persistence (localStorage is best-effort: the game works without it)
+  // ---------------------------------------------------------------------------
+
+  const LS_CONFIG = 'orbitalFarkle.config.v1';
+  const LS_LOGS = 'orbitalFarkle.logs.v1';
+  const LS_TESTER = 'orbitalFarkle.tester.v1';
+
+  function lsGet(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+  function lsSet(key, val) {
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch (e) { /* ignore */ }
+  }
+
+  function loadConfig() {
+    return OF.mergeConfig(OF.defaultConfig(), lsGet(LS_CONFIG, null));
+  }
+
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+
+  let cfg = loadConfig();
+  let match = null;
+  let phase = 'choose'; // choose | select | farkled | reveal | over
+  let selected = [];
+  let pendingPlayerTurn = null;
+  let rolledFresh = false;
+  let matchSaved = false;
+  const roundLog = [];
+
+  function newMatch() {
+    if (match && !matchSaved && match.round > 1) saveMatch(true);
+    cfg = loadConfig();
+    match = new OF.Match(cfg);
+    matchSaved = false;
+    roundLog.length = 0;
+    selected = [];
+    pendingPlayerTurn = null;
+    match.beginRound();
+    phase = 'choose';
+    closeModal();
+    render();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Player actions
+  // ---------------------------------------------------------------------------
+
+  function onRoll() {
+    if (phase !== 'choose' || match.player.available === 0) return;
+    const r = match.roll(match.player);
+    selected = [];
+    rolledFresh = true;
+    if (r.farkle) {
+      phase = 'farkled';
+    } else {
+      phase = 'select';
+    }
+    render();
+    rolledFresh = false;
+  }
+
+  function onLaunch() {
+    if (phase !== 'choose' || !match.player.pad.length) return;
+    commit(match.launch(match.player));
+  }
+
+  function onCache() {
+    if (phase !== 'select' || !currentSelection()) return;
+    const turn = match.cache(match.player, selected.slice().sort());
+    if (turn) commit(turn);
+  }
+
+  function onFarkleContinue() {
+    if (phase !== 'farkled') return;
+    commit(match.farkle(match.player));
+  }
+
+  function toggleDie(i) {
+    if (phase !== 'select' || i >= match.player.dice.length) return;
+    const at = selected.indexOf(i);
+    if (at >= 0) selected.splice(at, 1);
+    else selected.push(i);
+    render();
+  }
+
+  function currentSelection() {
+    if (!selected.length) return null;
+    return OF.decompose(selected.map(function (i) { return match.player.dice[i]; }), cfg);
+  }
+
+  function commit(turn) {
+    pendingPlayerTurn = turn;
+    const res = match.resolveRound(turn);
+    roundLog.push(res);
+    phase = 'reveal';
+    render();
+    showReveal(res);
+  }
+
+  function afterReveal() {
+    closeModal();
+    if (match.over) {
+      phase = 'over';
+      if (!matchSaved) saveMatch(false);
+      render();
+      showGameOver();
+      return;
+    }
+    match.beginRound();
+    phase = 'choose';
+    render();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------------------
+
+  function render() {
+    $('round').textContent = match.round;
+    $('target').textContent = fmt(cfg.targetScore);
+    $('overtime').hidden = !match.overtime;
+    renderSide($('side-player'), match.player, true);
+    renderSide($('side-ai'), match.ai, false);
+    renderCenter();
+    renderValues();
+    renderLog();
+  }
+
+  function gaugeHtml(side) {
+    const g = match.gauge(side);
+    let segs = '';
+    for (let i = 0; i < g.of; i++) segs += '<div class="seg' + (i < g.tier ? ' on' : '') + '"></div>';
+    return (
+      '<div class="gauge"><div class="label"><span>Pending thrust</span><b>' + g.name + '</b></div>' +
+      '<div class="segs">' + segs + '</div></div>'
+    );
+  }
+
+  function renderSide(el, side, isPlayer) {
+    const pct = Math.min(1, side.banked / cfg.targetScore);
+    const need = Math.max(0, cfg.targetScore - side.banked);
+    let html =
+      '<div class="name"><span>' + (isPlayer ? 'You' : 'Opponent (AI)') + '</span>' +
+      '<span class="muted" style="font-size:12px;color:var(--muted)">' + side.available + ' dice live</span></div>' +
+      '<div class="banked">' + fmt(side.banked) + ' <small>banked · ' + fmt(need) + ' to orbit</small></div>' +
+      '<div class="track"><div class="stars"></div><div class="orbit">ORBIT ' + fmt(cfg.targetScore) + '</div>' +
+      '<div class="fill" style="height:' + (pct * 85) + '%"></div>' +
+      '<div class="rocket" style="bottom:' + (8 + pct * 80) + '%">🚀</div></div>' +
+      gaugeHtml(side);
+
+    if (isPlayer) {
+      html += '<div><h2 style="margin:4px 0 6px">Launch pad · ' + side.pad.length + ' hand' + (side.pad.length === 1 ? '' : 's') + '</h2>';
+      if (!side.pad.length) html += '<ul class="padlist"><li class="empty">Empty. Roll and cache hands to build thrust.</li></ul>';
+      else {
+        html += '<ul class="padlist">' + side.pad.map(function (h) {
+          return '<li><span>' + h.label + '</span><span class="dice">' + h.dice.join(' ') + '</span></li>';
+        }).join('') + '</ul>';
+      }
+      html += '</div>';
+    } else {
+      html += '<div><h2 style="margin:4px 0 6px">Last turn</h2><div class="lastturn">' + describeTurn(side.lastTurn, false) + '</div></div>';
+      html += '<div class="muted" style="font-size:12px;color:var(--muted)">Pad: ' + side.pad.length + ' hand' + (side.pad.length === 1 ? '' : 's') + ' cached</div>';
+    }
+    el.innerHTML = html;
+  }
+
+  function describeTurn(t, short) {
+    if (!t) return '<span class="muted" style="color:var(--muted)">No turns yet.</span>';
+    let s = '';
+    if (t.type === 'cache') {
+      s = '<span class="t-cache">Rolled ' + t.roll.length + ', cached</span> ' + t.hands.map(function (h) { return h.label; }).join(' + ');
+      if (t.hot) s += ' · <b>Hot dice!</b>';
+    } else if (t.type === 'farkle') {
+      s = '<span class="t-farkle">Farkle!</span> Rolled ' + t.roll.join(' ') + (t.handsLost.length ? ' and lost a pad of ' + t.handsLost.length + ' hand' + (t.handsLost.length === 1 ? '' : 's') : '');
+    } else if (t.type === 'launch') {
+      s = '<span class="t-launch">Launched</span> for ' + fmt(t.resolution.total);
+    }
+    if (!short && t.reason) s += '<span class="why">“' + t.reason + '”</span>';
+    return s;
+  }
+
+  function cmHtml(chips, mult) {
+    return '<span class="cm"><span class="c">' + fmt(chips) + '</span> × <span class="m">' + mult + '</span></span>';
+  }
+
+  function renderCenter() {
+    const p = match.player;
+    const tray = $('tray');
+    const status = $('status');
+    const sel = $('selinfo');
+    const actions = $('actions');
+    const risk = $('risk');
+
+    // Status line
+    if (phase === 'choose') {
+      status.innerHTML = '<b>Your move.</b> Roll ' + p.available + ' dice to build thrust, or launch your pad. <span class="lock">Opponent has locked in their move.</span>';
+    } else if (phase === 'select') {
+      status.innerHTML = '<b>Select one or more scoring hands</b> to cache on your pad, then confirm.';
+    } else if (phase === 'farkled') {
+      status.innerHTML = '<b>No scoring hand.</b> Your pad is destroyed.';
+    } else if (phase === 'reveal') {
+      status.innerHTML = 'Revealing round…';
+    } else {
+      status.innerHTML = '<b>Match over.</b>';
+    }
+
+    // Dice tray
+    let dice = '';
+    if (phase === 'select' || phase === 'farkled') {
+      p.dice.forEach(function (v, i) {
+        const cls = 'die' + (phase === 'select' ? ' clickable' : ' dead') + (selected.indexOf(i) >= 0 ? ' sel' : '') + (rolledFresh ? ' rolling' : '');
+        dice += '<button class="' + cls + '" data-i="' + i + '" style="animation-delay:' + (i * 40) + 'ms" aria-label="Die ' + (i + 1) + ': ' + v + '">' + v + '</button>';
+      });
+    } else {
+      for (let i = 0; i < p.available; i++) dice += '<div class="die blank">?</div>';
+      if (!p.available) dice = '<div class="hint" style="color:var(--muted);align-self:center">No dice left. Launch!</div>';
+    }
+    if (phase === 'farkled') dice += '<div class="farkle-banner" style="flex-basis:100%">FARKLE</div>';
+    tray.innerHTML = dice;
+    tray.querySelectorAll('.die[data-i]').forEach(function (b) {
+      b.addEventListener('click', function () { toggleDie(+b.dataset.i); });
+    });
+
+    // Selection info
+    if (phase === 'select') {
+      if (!selected.length) {
+        sel.innerHTML = '<span class="hint">Click dice (or press 1–6) to select a hand.</span>';
+      } else {
+        const hands = currentSelection();
+        if (!hands) {
+          sel.innerHTML = '<span class="invalid">Not a valid hand: every selected die must be part of a scoring hand.</span>';
+        } else {
+          const left = p.available - selected.length;
+          sel.innerHTML = hands.map(function (h) {
+            return '<span class="hand">' + h.label + ' · ' + cmHtml(h.chips, h.mult) + '</span>';
+          }).join('') +
+            '<div class="hint">' + (left === 0 && cfg.hotDice ? '<b style="color:var(--accent)">Hot dice!</b> All six dice come back.' : left + ' dice left for the next roll') + '</div>';
+        }
+      }
+    } else if (phase === 'farkled') {
+      sel.innerHTML = '<span class="invalid">Your pad of ' + p.pad.length + ' hand' + (p.pad.length === 1 ? '' : 's') + ' will be destroyed.</span>';
+    } else {
+      sel.innerHTML = '';
+    }
+
+    // Buttons
+    let a = '';
+    if (phase === 'choose') {
+      a += '<button class="primary" id="a-roll"' + (p.available ? '' : ' disabled') + '>Roll ' + p.available + ' dice<kbd>R</kbd></button>';
+      a += '<button class="danger" id="a-launch"' + (p.pad.length ? '' : ' disabled') + '>Launch pad<kbd>L</kbd></button>';
+    } else if (phase === 'select') {
+      a += '<button class="primary" id="a-cache"' + (currentSelection() ? '' : ' disabled') + '>Cache & end turn<kbd>Enter</kbd></button>';
+    } else if (phase === 'farkled') {
+      a += '<button class="danger" id="a-fcont">End turn<kbd>Enter</kbd></button>';
+    } else if (phase === 'over') {
+      a += '<button class="primary" id="a-again">Play again</button>';
+    }
+    actions.innerHTML = a;
+    bind('a-roll', onRoll);
+    bind('a-launch', onLaunch);
+    bind('a-cache', onCache);
+    bind('a-fcont', onFarkleContinue);
+    bind('a-again', newMatch);
+
+    // Farkle risk readout
+    if (cfg.showFarkleRisk && phase === 'choose' && p.available) {
+      const ch = OF.farkleChance(p.available);
+      risk.innerHTML = 'Farkle chance on a ' + p.available + '-die roll: <b>' + (ch * 100).toFixed(ch < 0.1 && ch > 0 ? 1 : 0) + '%</b>';
+    } else if (cfg.showFarkleRisk && phase === 'select' && selected.length && currentSelection()) {
+      let left = p.available - selected.length;
+      if (left === 0 && cfg.hotDice) left = 6;
+      const ch = OF.farkleChance(left);
+      risk.innerHTML = left ? 'Next roll would be ' + left + ' dice: <b>' + (ch * 100).toFixed(ch < 0.1 && ch > 0 ? 1 : 0) + '%</b> farkle chance' : 'No dice left after this: you will have to launch.';
+    } else risk.innerHTML = '';
+  }
+
+  function bind(id, fn) {
+    const el = $(id);
+    if (el) el.addEventListener('click', fn);
+  }
+
+  function renderValues() {
+    $('mode-tag').textContent = cfg.scoringMode === 'pooled' ? 'pooled scoring' : 'per-hand scoring';
+    let rows = '<tr><th>Hand</th><th>Dice</th><th class="num">Base</th><th class="num">With power-ups</th></tr>';
+    OF.HAND_DEFS.forEach(function (h) {
+      const base = cfg.hands[h.id];
+      const v = OF.handValue(h.id, cfg);
+      rows += '<tr><td>' + h.name + '</td><td style="color:var(--muted)">' + OF.HAND_DICE_TEXT[h.id] + '</td>' +
+        '<td class="num">' + cmHtml(base.chips, base.mult) + '</td>' +
+        '<td class="num">' + cmHtml(v.chips, v.mult) + (v.boosts.length ? '<br><span class="boost">' + v.boosts.join(', ') + '</span>' : '') + '</td></tr>';
+    });
+    $('values').innerHTML = rows;
+    $('formula').innerHTML = cfg.scoringMode === 'pooled'
+      ? 'At launch the pad resolves as <b>(total chips) × (total mult)</b> across every cached hand. Longer burns grow faster than linearly.'
+      : 'At launch each cached hand resolves as its own <b>chips × mult</b>, and the results are added.';
+
+    const p = cfg.powerups;
+    $('powerups').innerHTML =
+      '<div class="pu' + (p.single.enabled ? '' : ' off') + '"><span>⚡ Single booster</span><span>Singles: +' + p.single.chips + ' chips</span></div>' +
+      '<div class="pu' + (p.run.enabled ? '' : ' off') + '"><span>🌀 Run booster</span><span>Small/medium straights: +' + p.run.mult + ' mult</span></div>' +
+      '<div class="pu' + (p.set.enabled ? '' : ' off') + '"><span>💎 Set booster</span><span>Pairs & of-a-kinds: ×' + p.set.xmult + ' mult</span></div>';
+
+    const th = OF.gaugeThresholds(cfg);
+    const names = [];
+    for (let t = 1; t <= cfg.gaugeTiers; t++) {
+      const lo = t === 1 ? 0 : th[t - 2];
+      const hi = t - 1 < th.length ? th[t - 1] : null;
+      const nm = OF.gaugeTier(t === 1 ? 0 : lo, 1, cfg).name;
+      names.push('<b style="color:var(--text)">' + nm + '</b> ' + (hi === null ? fmt(lo) + '+' : fmt(lo) + '–' + fmt(hi)));
+    }
+    $('tiers').innerHTML = names.join(' · ') + '<br>The gauge shows a tier, never the exact launch total.';
+  }
+
+  function renderLog() {
+    $('log').innerHTML = roundLog.map(function (r) {
+      return '<div><span class="r">R' + r.round + '</span> You: ' + describeTurn(r.player, true) + ' &nbsp;|&nbsp; AI: ' + describeTurn(r.ai, true) + '</div>';
+    }).join('') || '<div style="color:var(--muted)">Nothing yet.</div>';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Modals
+  // ---------------------------------------------------------------------------
+
+  let modalOnEnter = null;
+  let revealTimers = [];
+
+  function openModal(html, onEnter) {
+    $('modal').innerHTML = html;
+    $('overlay').hidden = false;
+    modalOnEnter = onEnter || null;
+  }
+  function closeModal() {
+    revealTimers.forEach(clearTimeout);
+    revealTimers = [];
+    $('overlay').hidden = true;
+    $('modal').innerHTML = '';
+    modalOnEnter = null;
+  }
+
+  function turnCard(who, t, idPrefix) {
+    let cls = 'card';
+    let body = '';
+    if (t.type === 'cache') {
+      body = '<div class="big" style="color:var(--accent)">Cached</div>' +
+        '<div>' + t.hands.map(function (h) { return h.label + ' ' + cmHtml(h.chips, h.mult); }).join('<br>') + '</div>' +
+        '<div class="muted">Rolled ' + t.roll.join(' ') + (t.hot ? ' · <b style="color:var(--accent)">Hot dice! Six dice return.</b>' : ' · ' + t.diceLeft + ' dice left') + '</div>';
+    } else if (t.type === 'farkle') {
+      cls += ' farkle';
+      body = '<div class="big" style="color:var(--bad)">Farkle!</div><div class="muted">Rolled ' + t.roll.join(' ') + ' with no scoring hand.</div>';
+      if (t.handsLost.length) {
+        body += '<div>Pad destroyed: ' + t.handsLost.length + ' hand' + (t.handsLost.length === 1 ? '' : 's') + '.</div>' +
+          '<div class="muted">It would have launched for <b style="color:var(--text)">' + fmt(t.lost.total) + '</b>.</div>';
+      }
+    } else if (t.type === 'launch') {
+      cls += ' launch';
+      const r = t.resolution;
+      body = '<div class="big" style="color:var(--good)">Launch!</div><ul class="steps" id="' + idPrefix + '-steps">' +
+        r.steps.map(function (s) {
+          return '<li><span>' + s.label + '</span><span>' +
+            (r.mode === 'pooled' ? '+<span class="cm"><span class="c">' + s.chips + '</span></span> / +<span class="cm"><span class="m">' + s.mult + '</span></span>'
+              : cmHtml(s.chips, s.mult) + ' = ' + fmt(s.own)) + '</span></li>';
+        }).join('') + '</ul>' +
+        '<div class="resolve">' +
+        (r.mode === 'pooled' ? '<span id="' + idPrefix + '-cm">' + cmHtml(0, 0) + '</span>' : '<span id="' + idPrefix + '-cm">' + fmt(0) + '</span>') +
+        '<span class="total" id="' + idPrefix + '-total">= ' + fmt(r.total) + '</span></div>' +
+        '<div class="muted" style="text-align:center">Banked ' + fmt(t.before) + ' → <b style="color:var(--text)">' + fmt(t.after) + '</b></div>';
+    }
+    const why = t.reason ? '<div class="why">“' + t.reason + '”</div>' : '';
+    return '<div class="' + cls + '"><h4><span>' + who + '</span></h4>' + body + why + '</div>';
+  }
+
+  function animateLaunch(idPrefix, t, delay) {
+    if (t.type !== 'launch') return delay;
+    const r = t.resolution;
+    const items = document.querySelectorAll('#' + idPrefix + '-steps li');
+    const cm = $(idPrefix + '-cm');
+    r.steps.forEach(function (s, i) {
+      delay += 380;
+      revealTimers.push(setTimeout(function () {
+        if (items[i]) items[i].classList.add('show');
+        if (cm) cm.innerHTML = r.mode === 'pooled' ? cmHtml(s.runChips, s.runMult) : fmt(s.runOwn);
+      }, delay));
+    });
+    delay += 450;
+    revealTimers.push(setTimeout(function () {
+      const tot = $(idPrefix + '-total');
+      if (tot) tot.classList.add('show');
+    }, delay));
+    return delay;
+  }
+
+  function showReveal(res) {
+    let title = 'Round ' + res.round + ' results';
+    let note = '';
+    if (res.result === 'tie') {
+      note = '<div class="card" style="margin-top:12px;border-color:var(--accent)"><b>Both ships reached orbit in the same round!</b> It is a tie, so another round is played. After it, the higher banked score wins.</div>';
+    }
+    openModal(
+      '<h3>' + title + '</h3><div class="row">' + turnCard('You', res.player, 'rp') + turnCard('Opponent', res.ai, 'ra') + '</div>' + note +
+      '<div class="foot"><button class="primary" id="m-next">' + (match.over ? 'See result' : 'Next round') + '<kbd>Enter</kbd></button></div>',
+      afterReveal
+    );
+    bind('m-next', afterReveal);
+    let d = animateLaunch('rp', res.player, 100);
+    animateLaunch('ra', res.ai, res.player.type === 'launch' ? d : 100);
+  }
+
+  function showGameOver() {
+    const w = match.winner;
+    const title = w === 'player' ? 'You reached orbit first! 🎉' : 'The opponent reached orbit first.';
+    const q = function (name, text) {
+      let s = '<label>' + text + '<div class="scale">';
+      for (let i = 1; i <= 5; i++) s += '<label><input type="radio" name="' + name + '" value="' + i + '">' + i + '</label>';
+      return s + '</div><span style="color:var(--muted);font-size:12px">1 = not at all · 5 = completely</span></label>';
+    };
+    openModal(
+      '<div class="winbox"><h3>' + title + '</h3>' +
+      '<div class="big">' + fmt(match.player.banked) + ' – ' + fmt(match.ai.banked) + '</div>' +
+      '<div style="color:var(--muted)">' + match.round + ' rounds</div></div>' +
+      '<form class="survey" id="survey"><b>Quick questions (optional, saved to the playtest log)</b>' +
+      q('q_bet', 'Launching felt like a bet, not a routine.') +
+      q('q_opp', 'The opponent\'s score changed when I launched.') +
+      q('q_fair', 'Losses felt explained by my own choices.') +
+      '<label>After a farkle, what should you have done? (or anything else)<textarea name="q_note"></textarea></label></form>' +
+      '<div class="foot"><button id="m-log">Playtest log</button><button class="primary" id="m-again">Save & play again<kbd>Enter</kbd></button></div>',
+      function () { saveSurvey(); newMatch(); }
+    );
+    bind('m-again', function () { saveSurvey(); newMatch(); });
+    bind('m-log', function () { saveSurvey(); showStats(); });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Playtest logging
+  // ---------------------------------------------------------------------------
+
+  function tester() {
+    return lsGet(LS_TESTER, '') || '';
+  }
+
+  function saveMatch(abandoned) {
+    const logs = lsGet(LS_LOGS, []);
+    const burns = match.log.burns.map(function (b) {
+      return {
+        side: b.side, startRound: b.startRound, endRound: b.endRound, caches: b.caches, rolls: b.rolls, hotDice: b.hotDice,
+        outcome: b.outcome, total: b.total, diffAtStart: b.diffAtStart, diffAtEnd: b.diffAtEnd, trailing: b.trailing,
+      };
+    });
+    let comeback = false;
+    if (!abandoned && match.winner) {
+      const wins = burns.filter(function (b) { return b.side === match.winner && b.outcome === 'launch'; });
+      const last = wins[wins.length - 1];
+      comeback = !!(last && last.trailing && last.caches >= 3);
+    }
+    logs.push({
+      id: Date.now().toString(36),
+      tester: tester(),
+      startedAt: new Date(match.log.startedAt).toISOString(),
+      endedAt: new Date().toISOString(),
+      abandoned: !!abandoned,
+      winner: abandoned ? null : match.winner,
+      rounds: match.round,
+      playerBanked: match.player.banked,
+      aiBanked: match.ai.banked,
+      comeback: comeback,
+      config: { targetScore: cfg.targetScore, scoringMode: cfg.scoringMode, gaugeTiers: cfg.gaugeTiers, hotDice: cfg.hotDice, showFarkleRisk: cfg.showFarkleRisk },
+      burns: burns,
+      roundLog: match.log.rounds,
+      survey: null,
+    });
+    lsSet(LS_LOGS, logs);
+    matchSaved = true;
+  }
+
+  function saveSurvey() {
+    const form = $('survey');
+    if (!form) return;
+    const data = {};
+    let any = false;
+    ['q_bet', 'q_opp', 'q_fair'].forEach(function (k) {
+      const el = form.querySelector('input[name=' + k + ']:checked');
+      data[k] = el ? +el.value : null;
+      if (el) any = true;
+    });
+    data.q_note = form.querySelector('textarea').value.trim();
+    if (data.q_note) any = true;
+    if (!any) return;
+    const logs = lsGet(LS_LOGS, []);
+    if (logs.length) {
+      logs[logs.length - 1].survey = data;
+      lsSet(LS_LOGS, logs);
+    }
+  }
+
+  function computeStats(logs) {
+    const done = logs.filter(function (m) { return !m.abandoned; });
+    const pb = [];
+    logs.forEach(function (m) {
+      m.burns.forEach(function (b) { if (b.side === 'player' && b.outcome !== 'matchEnd') pb.push(b); });
+    });
+    const launched = pb.filter(function (b) { return b.outcome === 'launch'; });
+    const avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null; };
+    const trailing = pb.filter(function (b) { return b.trailing; }).map(function (b) { return b.caches; });
+    const leading = pb.filter(function (b) { return !b.trailing; }).map(function (b) { return b.caches; });
+    return {
+      matches: done.length,
+      wins: done.filter(function (m) { return m.winner === 'player'; }).length,
+      burns: pb.length,
+      long: launched.length ? launched.filter(function (b) { return b.caches >= 3; }).length / launched.length : null,
+      farkleRate: pb.length ? pb.filter(function (b) { return b.outcome === 'farkle'; }).length / pb.length : null,
+      avgLaunch: avg(launched.map(function (b) { return b.total; })),
+      trailingCaches: avg(trailing),
+      leadingCaches: avg(leading),
+      trailingN: trailing.length,
+      leadingN: leading.length,
+      comebacks: done.length ? done.filter(function (m) { return m.comeback; }).length / done.length : null,
+      avgRounds: avg(done.map(function (m) { return m.rounds; })),
+    };
+  }
+
+  function showStats() {
+    const logs = lsGet(LS_LOGS, []);
+    const s = computeStats(logs);
+    const pct = function (x) { return x === null ? '–' : Math.round(x * 100) + '%'; };
+    const num = function (x, d) { return x === null ? '–' : x.toFixed(d || 0); };
+    const pass = function (ok, text) { return ok === null ? '' : '<div class="' + (ok ? 'pass' : 'fail') + '">' + (ok ? '✓ ' : '✗ ') + text + '</div>'; };
+    const stat = function (v, k, extra) { return '<div class="stat"><div class="v">' + v + '</div><div class="k">' + k + '</div>' + (extra || '') + '</div>'; };
+    openModal(
+      '<h3>Playtest log</h3>' +
+      '<div class="form" style="margin-bottom:12px"><label>Tester name (saved with each match)<input type="text" id="tester" value="' + escapeHtml(tester()) + '" style="background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px;font:inherit"></label></div>' +
+      '<div class="stats">' +
+      stat(s.matches + ' <small style="font-size:13px;color:var(--muted)">(' + s.wins + ' won)</small>', 'Completed matches on this browser') +
+      stat(pct(s.long), 'Your launched burns with 3+ cache turns', pass(s.long === null ? null : s.long >= 0.4, 'target ≥ 40%')) +
+      stat(num(s.trailingCaches, 2) + ' vs ' + num(s.leadingCaches, 2), 'Avg cache turns per burn: trailing vs leading (n=' + s.trailingN + ' / ' + s.leadingN + ')',
+        pass(s.trailingCaches === null || s.leadingCaches === null ? null : s.trailingCaches > s.leadingCaches, 'trailing should go longer')) +
+      stat(pct(s.comebacks), 'Matches won by a trailing ship after a 3+ cache burn', pass(s.comebacks === null ? null : s.comebacks >= 0.25, 'target ≥ 1 in 4')) +
+      stat(pct(s.farkleRate), 'Your farkle rate (per burn)') +
+      stat(num(s.avgLaunch), 'Your average launch size') +
+      stat(num(s.avgRounds, 1), 'Average rounds per match') +
+      stat(s.burns, 'Your burns logged') +
+      '</div>' +
+      '<p style="color:var(--muted);font-size:13px">Logs live in this browser only (localStorage). Export them to collect results from each tester.</p>' +
+      '<div class="foot"><button id="s-clear">Clear log</button><button id="s-csv">Export burns CSV</button><button id="s-json">Export JSON</button><button class="primary" id="s-close">Close<kbd>Esc</kbd></button></div>',
+      null
+    );
+    $('tester').addEventListener('change', function (e) { lsSet(LS_TESTER, e.target.value.trim()); });
+    bind('s-close', function () { closeModal(); if (phase === 'over') showGameOver(); });
+    bind('s-json', function () { download('orbital-farkle-log.json', JSON.stringify(lsGet(LS_LOGS, []), null, 2), 'application/json'); });
+    bind('s-csv', function () { download('orbital-farkle-burns.csv', burnsCsv(lsGet(LS_LOGS, [])), 'text/csv'); });
+    bind('s-clear', function () {
+      if (confirm('Delete every logged match on this browser?')) { lsSet(LS_LOGS, []); showStats(); }
+    });
+  }
+
+  function burnsCsv(logs) {
+    const cols = ['matchId', 'tester', 'winner', 'side', 'startRound', 'endRound', 'caches', 'rolls', 'hotDice', 'outcome', 'total', 'diffAtStart', 'diffAtEnd', 'trailing', 'targetScore', 'scoringMode'];
+    const rows = [cols.join(',')];
+    logs.forEach(function (m) {
+      m.burns.forEach(function (b) {
+        const r = Object.assign({ matchId: m.id, tester: m.tester, winner: m.winner, targetScore: m.config.targetScore, scoringMode: m.config.scoringMode }, b);
+        rows.push(cols.map(function (c) { const v = r[c]; return v === null || v === undefined ? '' : JSON.stringify(v); }).join(','));
+      });
+    });
+    return rows.join('\n');
+  }
+
+  function download(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: type }));
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tuning panel
+  // ---------------------------------------------------------------------------
+
+  function showTuning() {
+    const c = loadConfig();
+    let handRows = '<tr><th>Hand</th><th>Chips</th><th>Mult</th></tr>';
+    OF.HAND_DEFS.forEach(function (h) {
+      handRows += '<tr><td>' + h.name + '</td><td><input type="number" min="0" step="1" data-hand="' + h.id + '" data-k="chips" value="' + c.hands[h.id].chips + '"></td>' +
+        '<td><input type="number" min="0" step="0.5" data-hand="' + h.id + '" data-k="mult" value="' + c.hands[h.id].mult + '"></td></tr>';
+    });
+    openModal(
+      '<h3>Tuning dials</h3><p style="color:var(--muted);font-size:13px;margin-top:0">Changes apply when you save, and restart the match. Saved in this browser.</p>' +
+      '<form class="form" id="tune">' +
+      '<label>Target score (orbital velocity)<input type="number" name="targetScore" min="100" step="100" value="' + c.targetScore + '"></label>' +
+      '<label>Scoring at launch<select name="scoringMode"><option value="pooled"' + (c.scoringMode === 'pooled' ? ' selected' : '') + '>Pooled: total chips × total mult</option><option value="perHand"' + (c.scoringMode === 'perHand' ? ' selected' : '') + '>Per hand: sum of each chips × mult</option></select></label>' +
+      '<label>Gauge tiers (granularity)<input type="number" name="gaugeTiers" min="2" max="12" step="1" value="' + c.gaugeTiers + '"></label>' +
+      '<label class="inline"><input type="checkbox" name="hotDice"' + (c.hotDice ? ' checked' : '') + '>Hot dice (all six return when every die is cached)</label>' +
+      '<label class="inline"><input type="checkbox" name="showFarkleRisk"' + (c.showFarkleRisk ? ' checked' : '') + '>Show farkle chance for the next roll</label>' +
+      '<h4>Power-ups</h4>' +
+      '<label class="inline"><input type="checkbox" name="pu_single"' + (c.powerups.single.enabled ? ' checked' : '') + '>Single booster: + chips <input type="number" name="pu_single_v" min="0" step="1" value="' + c.powerups.single.chips + '" style="width:70px"></label>' +
+      '<label class="inline"><input type="checkbox" name="pu_run"' + (c.powerups.run.enabled ? ' checked' : '') + '>Run booster: + mult <input type="number" name="pu_run_v" min="0" step="0.5" value="' + c.powerups.run.mult + '" style="width:70px"></label>' +
+      '<label class="inline"><input type="checkbox" name="pu_set"' + (c.powerups.set.enabled ? ' checked' : '') + '>Set booster: × mult <input type="number" name="pu_set_v" min="1" step="0.1" value="' + c.powerups.set.xmult + '" style="width:70px"></label>' +
+      '<span></span>' +
+      '<h4>AI</h4>' +
+      '<label>Base launch point (share of target)<input type="number" name="ai_base" min="0.02" max="1" step="0.01" value="' + c.ai.baseLaunchShare + '"></label>' +
+      '<label>Leading: launch-point factor (&lt;1 = earlier)<input type="number" name="ai_lead" min="0.1" max="2" step="0.05" value="' + c.ai.leadingFactor + '"></label>' +
+      '<label>Trailing: max launch-point factor (&gt;1 = later)<input type="number" name="ai_trail" min="1" max="4" step="0.1" value="' + c.ai.trailingMax + '"></label>' +
+      '<label>Randomness per burn (±)<input type="number" name="ai_jitter" min="0" max="0.9" step="0.05" value="' + c.ai.jitter + '"></label>' +
+      '<h4>Base hand values</h4>' +
+      '<table class="values edit" style="grid-column:1/-1">' + handRows + '</table>' +
+      '</form>' +
+      '<div class="foot"><button id="t-reset">Reset to defaults</button><button id="t-cancel">Cancel</button><button class="primary" id="t-save">Save & restart</button></div>',
+      null
+    );
+    bind('t-cancel', closeModal);
+    bind('t-reset', function () {
+      try { localStorage.removeItem(LS_CONFIG); } catch (e) { /* ignore */ }
+      newMatch();
+    });
+    bind('t-save', function () {
+      const f = $('tune');
+      const val = function (n) { return parseFloat(f.elements[n].value); };
+      const chk = function (n) { return f.elements[n].checked; };
+      const over = {
+        targetScore: Math.max(100, val('targetScore') || 2500),
+        scoringMode: f.elements.scoringMode.value,
+        gaugeTiers: Math.min(12, Math.max(2, Math.round(val('gaugeTiers')) || 5)),
+        hotDice: chk('hotDice'),
+        showFarkleRisk: chk('showFarkleRisk'),
+        powerups: {
+          single: { enabled: chk('pu_single'), chips: val('pu_single_v') || 0 },
+          run: { enabled: chk('pu_run'), mult: val('pu_run_v') || 0 },
+          set: { enabled: chk('pu_set'), xmult: val('pu_set_v') || 1 },
+        },
+        ai: { baseLaunchShare: val('ai_base'), leadingFactor: val('ai_lead'), trailingMax: val('ai_trail'), jitter: val('ai_jitter') },
+        hands: {},
+      };
+      f.querySelectorAll('input[data-hand]').forEach(function (inp) {
+        const id = inp.dataset.hand;
+        over.hands[id] = over.hands[id] || {};
+        over.hands[id][inp.dataset.k] = Math.max(0, parseFloat(inp.value) || 0);
+      });
+      lsSet(LS_CONFIG, over);
+      newMatch();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rules
+  // ---------------------------------------------------------------------------
+
+  function showRules() {
+    openModal(
+      '<h3>How to play</h3><div class="rules"><ul>' +
+      '<li><b>Race to orbit.</b> First ship to bank <b>' + fmt(cfg.targetScore) + '</b> points wins.</li>' +
+      '<li><b>Simultaneous rounds.</b> Each round you and the AI each take one turn at the same time. The AI locks in before seeing yours; results are revealed together.</li>' +
+      '<li><b>Your turn is one of:</b><ol>' +
+      '<li><b>Roll and cache</b>: roll your live dice, select one or more scoring hands, and cache them on your launch pad.</li>' +
+      '<li><b>Roll and farkle</b>: no scoring hand in the roll. Your whole pad is destroyed. The turn is still used.</li>' +
+      '<li><b>Launch</b>: your pad resolves as chips × mult and is banked. The pad empties and the next burn starts with six dice.</li></ol></li>' +
+      '<li><b>Nothing scores until launch.</b> You see your cached hands by name and a coarse thrust gauge, never the exact total.</li>' +
+      '<li><b>Hot dice:</b> cache all six dice and they all come back for the same burn.</li>' +
+      '<li><b>Tempo:</b> a launch costs a whole turn. A burn of N hands takes N + 1 turns. Long burns are efficient but risk a farkle.</li>' +
+      '<li><b>Ties:</b> if both ships reach orbit in the same round, another round is played; then the higher banked score wins.</li>' +
+      '</ul><p style="color:var(--muted)">Keys: <kbd>R</kbd> roll · <kbd>L</kbd> launch · <kbd>1</kbd>–<kbd>6</kbd> select dice · <kbd>Enter</kbd> confirm / continue · <kbd>Esc</kbd> close</p></div>' +
+      '<div class="foot"><button class="primary" id="r-close">Got it<kbd>Enter</kbd></button></div>',
+      closeModal
+    );
+    bind('r-close', closeModal);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Wiring
+  // ---------------------------------------------------------------------------
+
+  bind('btn-rules', showRules);
+  bind('btn-tuning', showTuning);
+  bind('btn-stats', showStats);
+  bind('btn-restart', function () {
+    if (match.round <= 1 || phase === 'over' || confirm('Restart the match? Progress is logged as abandoned.')) newMatch();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target && e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return;
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
+    const modalOpen = !$('overlay').hidden;
+    if (modalOpen) {
+      if (e.key === 'Enter' && modalOnEnter) { e.preventDefault(); modalOnEnter(); }
+      else if (e.key === 'Escape' && phase !== 'reveal' && phase !== 'over') closeModal();
+      return;
+    }
+    const k = e.key.toLowerCase();
+    if (k === 'r') onRoll();
+    else if (k === 'l') onLaunch();
+    else if (k >= '1' && k <= '6') toggleDie(+k - 1);
+    else if (k === 'enter' || k === 'c') {
+      e.preventDefault();
+      if (phase === 'select') onCache();
+      else if (phase === 'farkled') onFarkleContinue();
+    }
+  });
+
+  newMatch();
+  if (!lsGet('orbitalFarkle.seenRules', false)) {
+    lsSet('orbitalFarkle.seenRules', true);
+    showRules();
+  }
+})();
