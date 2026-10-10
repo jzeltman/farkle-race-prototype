@@ -397,6 +397,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       gaugeTiers: 5,
       hotDice: true,
       showFarkleRisk: true,
+      autoRoll: true, // roll for the player when rolling is their only option
       hands: hands,
       powerups: {
         single: { enabled: true, chips: 10, appliesTo: ['single1', 'single5'] },
@@ -1517,6 +1518,25 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     changedDie = -1;
   }
 
+  // --- auto-roll ---
+
+  let autoRollTimer = null;
+
+  /** True when it's the player's move and rolling is the only thing they can do. */
+  function onlyRollPossible() {
+    const p = match.player;
+    return phase === 'choose' && p.available > 0 && !p.pad.length && !itemUsable('intercept');
+  }
+
+  /** Roll for the player after a short beat, once no dialog is open. */
+  function maybeAutoRoll() {
+    if (!cfg.autoRoll || autoRollTimer || !onlyRollPossible() || !$('overlay').hidden) return;
+    autoRollTimer = setTimeout(function () {
+      autoRollTimer = null;
+      if (onlyRollPossible() && $('overlay').hidden) onRoll();
+    }, 600);
+  }
+
   function currentSelection() {
     if (!selected.length) return null;
     return OF.decompose(selected.map(function (i) { return match.player.dice[i]; }), cfg);
@@ -1562,6 +1582,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     renderMiddle();
     renderMyBoard();
     renderTrack();
+    maybeAutoRoll();
   }
 
   function gaugeHtml(side, label) {
@@ -1727,6 +1748,8 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       const t = ITEM[targeting];
       const what = t.target === 'ownDie' ? 'Click one of your dice' : t.target === 'oppDie' ? "Click one of the opponent's dice to copy" : "Click one of the opponent's hands to copy";
       status = '<b>' + t.name + ':</b> ' + what + '. <span class="lock">Esc to cancel.</span>';
+    } else if (phase === 'choose' && cfg.autoRoll && onlyRollPossible()) {
+      status = '<b>Rolling…</b> Your pad is empty, so rolling is your only move. <span class="lock">The opponent has locked in their move.</span>';
     } else if (phase === 'choose') {
       status = '<b>Your move.</b> Roll ' + p.available + ' dice to build thrust, or launch your pad. <span class="lock">The opponent has locked in their move.</span>';
     } else if (phase === 'select') {
@@ -1890,6 +1913,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
     $('overlay').hidden = true;
     $('modal').innerHTML = '';
     modalOnEnter = null;
+    if (match) maybeAutoRoll();
   }
 
   function turnCard(who, t, idPrefix) {
@@ -2170,6 +2194,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       '<label>Gauge tiers (granularity)<input type="number" name="gaugeTiers" min="2" max="12" step="1" value="' + c.gaugeTiers + '"></label>' +
       '<label class="inline"><input type="checkbox" name="hotDice"' + (c.hotDice ? ' checked' : '') + '>Hot dice (all six return when every die is cached)</label>' +
       '<label class="inline"><input type="checkbox" name="showFarkleRisk"' + (c.showFarkleRisk ? ' checked' : '') + '>Show farkle chance for the next roll</label>' +
+      '<label class="inline"><input type="checkbox" name="autoRoll"' + (c.autoRoll ? ' checked' : '') + '>Auto-roll when rolling is the only option</label>' +
       '<h4>Power-ups</h4>' +
       '<label class="inline"><input type="checkbox" name="pu_single"' + (c.powerups.single.enabled ? ' checked' : '') + '>Single booster: + chips <input type="number" name="pu_single_v" min="0" step="1" value="' + c.powerups.single.chips + '" style="width:70px"></label>' +
       '<label class="inline"><input type="checkbox" name="pu_run"' + (c.powerups.run.enabled ? ' checked' : '') + '>Run booster: + mult <input type="number" name="pu_run_v" min="0" step="0.5" value="' + c.powerups.run.mult + '" style="width:70px"></label>' +
@@ -2214,6 +2239,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
         gaugeTiers: Math.min(12, Math.max(2, Math.round(val('gaugeTiers')) || 5)),
         hotDice: chk('hotDice'),
         showFarkleRisk: chk('showFarkleRisk'),
+        autoRoll: chk('autoRoll'),
         powerups: {
           single: { enabled: chk('pu_single'), chips: val('pu_single_v') || 0 },
           run: { enabled: chk('pu_run'), mult: val('pu_run_v') || 0 },
@@ -2258,6 +2284,7 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
       '<li><b>Launch</b>: your pad resolves as chips × mult and is banked. The pad empties and the next burn starts with six dice.</li></ol></li>' +
       '<li><b>Nothing scores until launch.</b> You see your cached hands by name and a coarse thrust gauge, never the exact total.</li>' +
       '<li><b>Hot dice:</b> cache all six dice and they all come back for the same burn.</li>' +
+      '<li><b>Auto-roll:</b> when your pad is empty and you have no item to use first, rolling is your only move, so the game rolls for you.</li>' +
       '<li><b>Tempo:</b> a launch costs a whole turn. A burn of N hands takes N + 1 turns. Long burns are efficient but risk a farkle.</li>' +
       '<li><b>Ties:</b> if both ships reach orbit in the same round, another round is played; then the higher banked score wins.</li>' +
       '<li><b>Both rolls are visible.</b> Each round both ships either roll and cache or launch. When you roll, you see the opponent\'s dice too, or that they chose to launch.</li>' +

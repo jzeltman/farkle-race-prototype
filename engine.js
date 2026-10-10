@@ -55,6 +55,7 @@
       gaugeTiers: 5,
       hotDice: true,
       showFarkleRisk: true,
+      autoRoll: true, // roll for the player when rolling is their only option
       hands: hands,
       powerups: {
         single: { enabled: true, chips: 10, appliesTo: ['single1', 'single5'] },

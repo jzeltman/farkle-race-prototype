@@ -24,6 +24,7 @@ The rocket art is in `assets/` and is embedded in `style.css` as data URIs, so t
 - Simultaneous rounds. The AI commits to roll or launch before it sees your move, then both results are revealed together.
 - Turn types: **roll and cache**, **roll and farkle** (your pad is destroyed), and **launch** (the pad resolves and is banked).
 - Hot dice: cache all six dice and all six come back.
+- Auto-roll: when rolling is your only move (it's your move, your pad is empty, and you can't use Intercept first), the game rolls for you after a short pause. You can turn this off in Tuning.
 - The hand set: singles (1, 5), three to six of a kind, two pair, full house, small, medium and full straights, three pairs (four of a kind plus a pair also counts), and two triplets. A lone pair doesn't score.
 - Three power-ups, the same on both ships: Single booster (+10 chips), Run booster (+2 mult on small and medium straights), and Set booster (×1.5 mult on of-a-kinds, two pair, full house, three pairs and two triplets).
 - A coarse thrust gauge for both pads (5 tiers by default). It never shows the exact pending total.
