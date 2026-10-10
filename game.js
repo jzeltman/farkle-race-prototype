@@ -216,91 +216,261 @@
   // Rendering
   // ---------------------------------------------------------------------------
 
+  // Short labels for item tiles.
+  const ITEM_LABEL = { nudgeUp: '+1', nudgeDown: '−1', reroll: 'Reroll', intercept: 'Intercept', copyDie: 'Copy' };
+
   function render() {
     $('level').textContent = level;
     $('round').textContent = match.round;
-    $('target').textContent = fmt(cfg.targetScore);
     $('overtime').hidden = !match.overtime;
-    renderSide($('side-player'), match.player, true);
-    renderSide($('side-ai'), match.ai, false);
-    renderCenter();
-    renderValues();
-    renderLog();
+    renderHands($('opp-hands'), match.ai, false);
+    renderHands($('my-hands'), match.player, true);
+    renderOppBoard();
+    renderMiddle();
+    renderMyBoard();
+    renderTrack();
   }
 
-  function gaugeHtml(side) {
+  function gaugeHtml(side, label) {
     const g = match.gauge(side);
     let segs = '';
     for (let i = 0; i < g.of; i++) segs += '<div class="seg' + (i < g.tier ? ' on' : '') + '"></div>';
-    return (
-      '<div class="gauge"><div class="label"><span>Pending thrust</span><b>' + g.name + '</b></div>' +
-      '<div class="segs">' + segs + '</div></div>'
-    );
+    return '<div class="gauge" title="' + g.name + '"><span class="glabel">' + label + '</span><div class="segs">' + segs + '</div></div>';
   }
 
-  function renderSide(el, side, isPlayer) {
-    const pct = Math.min(1, side.banked / cfg.targetScore);
-    const need = Math.max(0, cfg.targetScore - side.banked);
-    let html =
-      '<div class="name"><span>' + (isPlayer ? 'You' : 'Opponent (AI)') + '</span>' +
-      '<span class="muted" style="font-size:12px;color:var(--muted)">' + side.available + ' dice live</span></div>' +
-      '<div class="banked">' + fmt(side.banked) + ' <small>banked · ' + fmt(need) + ' to orbit</small></div>' +
-      '<div class="track"><div class="stars"></div><div class="orbit">ORBIT ' + fmt(cfg.targetScore) + '</div>' +
-      '<div class="fill" style="height:' + (pct * 85) + '%"></div>' +
-      '<div class="rocket" style="bottom:' + (8 + pct * 80) + '%">🚀</div></div>' +
-      gaugeHtml(side);
+  /** "Velocity: banked / target" with a 10-segment progress bar. */
+  function velocityHtml(side, who) {
+    const n = 10;
+    const on = Math.min(n, Math.floor((side.banked / cfg.targetScore) * n));
+    let segs = '';
+    for (let i = 0; i < n; i++) segs += '<div class="seg' + (i < on ? ' on' : '') + '"></div>';
+    return '<div class="velocity ' + who + '"><span class="rocket-ico ' + who + '"></span>' +
+      '<span class="vlabel">Velocity: ' + fmt(side.banked) + ' / ' + fmt(cfg.targetScore) + '</span><div class="vsegs">' + segs + '</div></div>';
+  }
 
-    // Pad hands are listed by name for both ships (never the total). The opponent's are
-    // what Intercept copies from, so they become clickable while targeting.
-    const pickHand = !isPlayer && targeting === 'intercept';
-    // The AI doesn't act until the round resolves, so during your turn its pad is the round-start pad Intercept copies from.
-    const pad = side.pad;
-    html += '<div><h2 style="margin:4px 0 6px">' + (isPlayer ? 'Launch pad' : 'Their pad') + ' · ' + pad.length + ' hand' + (pad.length === 1 ? '' : 's') + '</h2>';
-    if (!pad.length) {
-      html += '<ul class="padlist"><li class="empty">' + (isPlayer ? 'Empty. Roll and cache hands to build thrust.' : 'Empty.') + '</li></ul>';
+  /** Left column: the hands cached this burn, with per-hand chips x mult (never the pad total). */
+  function renderHands(el, side, isPlayer) {
+    const pick = !isPlayer && targeting === 'intercept';
+    let rows = '';
+    if (!side.pad.length) {
+      rows = '<li class="empty">' + (isPlayer ? 'No hands cached yet.' : 'Nothing cached.') + '</li>';
     } else {
-      html += '<ul class="padlist">' + pad.map(function (h, i) {
-        return '<li' + (pickHand ? ' class="pick" data-h="' + i + '"' : '') + '><span>' + h.label + (h.copied ? ' <span class="copied">copied</span>' : '') + '</span><span class="dice">' + h.dice.join(' ') + '</span></li>';
-      }).join('') + '</ul>';
+      rows = side.pad.map(function (h, i) {
+        return '<li' + (pick ? ' class="pick" data-h="' + i + '"' : '') + '><span>' + h.label + (h.copied ? ' <span class="copied">copied</span>' : '') +
+          '</span><span class="cm"><span class="c">' + h.chips + '</span>×<span class="m">' + h.mult + '</span></span></li>';
+      }).join('');
     }
-    html += '</div>';
-    if (!isPlayer) {
-      html += '<div><h2 style="margin:4px 0 6px">Last turn</h2><div class="lastturn">' + describeTurn(side.lastTurn, false) + '</div></div>';
-    }
-    html += '<div><h2 style="margin:4px 0 6px">' + (isPlayer ? 'Your items' : 'Their items') + ' · ' + OF.inventoryCount(side.inventory) + '/' + cfg.consumables.capacity + '</h2>' + inventoryHtml(side, isPlayer) + '</div>';
-    el.innerHTML = html;
+    el.innerHTML =
+      '<div class="hhead">' + (isPlayer ? 'Hands this turn' : 'Opponent’s Hands this turn') + '</div>' +
+      '<ul class="hlist">' + rows + '</ul>' +
+      '<div class="hfoot">' + gaugeHtml(side, 'Potential Energy') + '</div>';
     el.querySelectorAll('li.pick').forEach(function (li) {
       li.addEventListener('click', function () { applyItem(+li.dataset.h); });
     });
-    el.querySelectorAll('button.item').forEach(function (b) {
-      b.addEventListener('click', function () { onItem(b.dataset.id); });
-    });
   }
 
-  /** One chip per inventory slot: owned items, then empty slots up to capacity. */
-  function inventoryHtml(side, isPlayer) {
+  function powerupsHtml() {
+    const p = cfg.powerups;
+    const tile = function (on, icon, text) {
+      return '<span class="pu-tile' + (on ? '' : ' off') + '" title="' + text + '">' + icon + '</span>';
+    };
+    return '<div class="pu-row">' +
+      tile(p.single.enabled, '⚡', 'Single booster: singles +' + p.single.chips + ' chips') +
+      tile(p.run.enabled, '🌀', 'Run booster: small and medium straights +' + p.run.mult + ' mult') +
+      tile(p.set.enabled, '💎', 'Set booster: of-a-kinds, two pair, full house, three pairs, two triplets ×' + p.set.xmult + ' mult') +
+      '</div>';
+  }
+
+  /** One tile per inventory slot: owned items, then empty slots up to capacity. */
+  function itemsHtml(side, isPlayer) {
     let html = '';
     OF.CONSUMABLE_DEFS.forEach(function (c) {
       for (let k = 0; k < (side.inventory[c.id] || 0); k++) {
+        const tip = c.name + ': ' + c.desc;
         if (!isPlayer) {
-          html += '<span class="item static" title="' + c.desc + '"><span class="ico">' + c.icon + '</span>' + c.name + '</span>';
+          html += '<span class="it-tile" title="' + tip + '">' + ITEM_LABEL[c.id] + '</span>';
         } else {
-          html += '<button class="item' + (targeting === c.id ? ' active' : '') + '" data-id="' + c.id + '"' + (itemUsable(c.id) ? '' : ' disabled') +
-            ' title="' + c.desc + '"><span class="ico">' + c.icon + '</span>' + c.name + '</button>';
+          html += '<button class="it-tile' + (targeting === c.id ? ' active' : '') + '" data-id="' + c.id + '"' + (itemUsable(c.id) ? '' : ' disabled') +
+            ' title="' + tip + '">' + ITEM_LABEL[c.id] + '</button>';
         }
       }
     });
-    for (let k = OF.inventoryCount(side.inventory); k < cfg.consumables.capacity; k++) html += '<span class="item slot">empty</span>';
-    return '<div class="items">' + html + '</div>';
+    for (let k = OF.inventoryCount(side.inventory); k < cfg.consumables.capacity; k++) html += '<span class="it-tile slot" title="Empty slot"></span>';
+    return '<div class="it-row">' + html + '</div>';
+  }
+
+  function toolbarHtml(side, isPlayer) {
+    return '<div class="toolbar">' + powerupsHtml() + itemsHtml(side, isPlayer) + '</div>';
+  }
+
+  function dieHtml(v, cls, attrs) {
+    return '<button class="die ' + cls + '" ' + attrs + '>' + v + '</button>';
+  }
+
+  function blankDice(n) {
+    let s = '';
+    for (let i = 0; i < 6; i++) s += '<div class="die blank' + (i < n ? '' : ' gone') + '"></div>';
+    return s;
+  }
+
+  function renderOppBoard() {
+    const ai = match.ai;
+    const el = $('opp-board');
+    const pick = targeting === 'copyDie';
+    let dice = '';
+    let note = '';
+    if ((phase === 'select' || phase === 'farkled') && ai.rolled) {
+      dice = ai.rolled.map(function (v, j) {
+        return dieHtml(v, (pick ? 'clickable target' : 'static') + (rolledFresh ? ' rolling' : ''), 'data-j="' + j + '"' + (pick ? '' : ' tabindex="-1"'));
+      }).join('');
+      if (!OF.hasScoring(ai.rolled)) note = 'No scoring dice… unless they use an item.';
+    } else {
+      dice = blankDice(ai.available);
+      if (phase === 'select' || phase === 'farkled') note = 'They chose to <b>launch</b> this round, so they have no roll.';
+    }
+    el.innerHTML =
+      toolbarHtml(ai, false) +
+      '<div class="dice-row">' + dice + '</div>' +
+      velocityHtml(ai, 'opp') +
+      '<div class="oppnote">' + (note || (ai.lastTurn ? 'Last turn: ' + describeTurn(ai.lastTurn, false) : phase === 'choose' ? 'Their dice appear when you roll.' : '')) + '</div>' +
+      '<div class="board-title">Opponent Information</div>';
+    if (pick) {
+      el.querySelectorAll('.die[data-j]').forEach(function (b) {
+        b.addEventListener('click', function () { applyItem(+b.dataset.j); });
+      });
+    }
+  }
+
+  function renderMyBoard() {
+    const p = match.player;
+    const el = $('my-board');
+    const pickOwn = targeting && ITEM[targeting].target === 'ownDie';
+
+    let actions = '';
+    if (phase === 'choose' || phase === 'reveal' || phase === 'over') {
+      const live = phase === 'choose';
+      actions = '<button class="big-btn roll" id="a-roll"' + (live && p.available ? '' : ' disabled') + '>Roll<kbd>R</kbd></button>' +
+        '<button class="big-btn launch" id="a-launch"' + (live && p.pad.length ? '' : ' disabled') + '>Launch<kbd>L</kbd></button>';
+    } else if (phase === 'select') {
+      actions = '<button class="big-btn roll wide" id="a-cache"' + (currentSelection() ? '' : ' disabled') + '>Cache & end turn<kbd>Enter</kbd></button>';
+    } else if (phase === 'farkled') {
+      actions = '<button class="big-btn launch wide" id="a-fcont">' + (hasRescue() ? 'Accept farkle (lose pad)' : 'End turn (pad destroyed)') + '<kbd>Enter</kbd></button>';
+    }
+
+    let dice = '';
+    if (phase === 'select' || phase === 'farkled') {
+      dice = p.dice.map(function (v, i) {
+        const cls = (phase === 'select' || pickOwn ? 'clickable' : 'dead') + (selected.indexOf(i) >= 0 ? ' sel' : '') +
+          (rolledFresh && !p.bonus[i] ? ' rolling' : '') + (p.bonus[i] ? ' bonus' : '') + (pickOwn ? ' target' : '') + (i === changedDie ? ' changed' : '');
+        return dieHtml(v, cls, 'data-i="' + i + '" style="animation-delay:' + i * 40 + 'ms" aria-label="Die ' + (i + 1) + ': ' + v + '"');
+      }).join('');
+    } else {
+      dice = blankDice(p.available);
+    }
+
+    el.innerHTML =
+      velocityHtml(p, 'me') +
+      '<div class="action-row">' + actions + '</div>' +
+      '<div class="dice-row">' + dice + '</div>' +
+      toolbarHtml(p, true);
+
+    el.querySelectorAll('.die[data-i]').forEach(function (b) {
+      b.addEventListener('click', function () { toggleDie(+b.dataset.i); });
+    });
+    el.querySelectorAll('button.it-tile').forEach(function (b) {
+      b.addEventListener('click', function () { onItem(b.dataset.id); });
+    });
+    bind('a-roll', onRoll);
+    bind('a-launch', onLaunch);
+    bind('a-cache', onCache);
+    bind('a-fcont', onFarkleContinue);
+  }
+
+  /** The gap between the two boards: status, the current selection, and farkle risk. */
+  function renderMiddle() {
+    const p = match.player;
+    let status = '';
+    if (targeting) {
+      const t = ITEM[targeting];
+      const what = t.target === 'ownDie' ? 'Click one of your dice' : t.target === 'oppDie' ? "Click one of the opponent's dice to copy" : "Click one of the opponent's hands to copy";
+      status = '<b>' + t.name + ':</b> ' + what + '. <span class="lock">Esc to cancel.</span>';
+    } else if (phase === 'choose') {
+      status = '<b>Your move.</b> Roll ' + p.available + ' dice to build thrust, or launch your pad. <span class="lock">The opponent has locked in their move.</span>';
+    } else if (phase === 'select') {
+      status = '<b>Select one or more scoring hands</b> to cache, then confirm. Items can change your dice first.';
+    } else if (phase === 'farkled') {
+      status = hasRescue()
+        ? '<b class="bad">You farkled</b>, but you can try an item to make a scoring hand. Or accept the farkle.'
+        : '<b class="bad">Farkle!</b> No scoring hand. Your pad is destroyed.';
+    } else if (phase === 'reveal') {
+      status = 'Revealing round…';
+    } else if (phase === 'over') {
+      status = '<b>Level over.</b> <button class="link" id="a-again">' + (match.winner === 'player' ? 'Next level' : 'New run') + '</button>';
+    }
+
+    let sel = '';
+    if (phase === 'select') {
+      if (!selected.length) {
+        sel = '<span class="hint">Click dice (or press 1–' + p.dice.length + ') to select a hand.' + (p.bonus.some(Boolean) ? ' Copied dice (blue) are free: they don’t use up your live dice.' : '') + '</span>';
+      } else {
+        const hands = currentSelection();
+        if (!hands) {
+          sel = '<span class="bad">Not a valid hand: every selected die must be part of a scoring hand.</span>';
+        } else {
+          const left = p.available - match.liveCount(p, selected);
+          sel = hands.map(function (h) { return '<span class="hand">' + h.label + ' · ' + cmHtml(h.chips, h.mult) + '</span>'; }).join('') +
+            '<div class="hint">' + (left === 0 && cfg.hotDice ? '<b class="accent">Hot dice!</b> All six dice come back.' : left + ' dice left for the next roll') + '</div>';
+        }
+      }
+    } else if (phase === 'farkled') {
+      sel = '<span class="bad">Accepting the farkle destroys your pad of ' + p.pad.length + ' hand' + (p.pad.length === 1 ? '' : 's') + '.</span>';
+    }
+
+    let risk = '';
+    if (cfg.showFarkleRisk && phase === 'choose' && p.available) {
+      risk = 'Farkle chance on a ' + p.available + '-die roll: <b>' + pctText(OF.farkleChance(p.available)) + '</b>';
+    } else if (cfg.showFarkleRisk && phase === 'select' && selected.length && currentSelection()) {
+      let left = p.available - match.liveCount(p, selected);
+      if (left === 0 && cfg.hotDice) left = 6;
+      risk = left ? 'Next roll would be ' + left + ' dice: <b>' + pctText(OF.farkleChance(left)) + '</b> farkle chance' : 'No dice left after this: you will have to launch.';
+    }
+
+    $('middle').innerHTML = '<div class="status">' + status + '</div><div class="selinfo">' + sel + '</div><div class="risk">' + risk + '</div>' +
+      (phase === 'farkled' ? '<div class="farkle-banner">FARKLE</div>' : '');
+    bind('a-again', continueRun);
+  }
+
+  /** Right column: a vertical race track from 0 to the target with both rockets on it. */
+  function niceStep(target) {
+    const raw = target / 3;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const steps = [1, 2, 2.5, 5, 10].map(function (m) { return m * mag; });
+    return steps.reduce(function (b, s) { return Math.abs(s - raw) < Math.abs(b - raw) ? s : b; });
+  }
+
+  function renderTrack() {
+    const t = cfg.targetScore;
+    const step = niceStep(t);
+    let ticks = '';
+    for (let v = step; v < t - step * 0.25; v += step) {
+      ticks += '<div class="tick" style="bottom:' + (v / t) * 100 + '%"><span>' + fmt(v) + '</span></div>';
+    }
+    const pos = function (side) { return Math.min(1, side.banked / t) * 100; };
+    $('track').innerHTML =
+      '<div class="tlabel">Target Velocity</div><div class="ttarget">' + fmt(t) + '</div>' +
+      '<div class="tline-wrap"><div class="tline">' + ticks +
+      '<div class="trocket me" style="bottom:' + pos(match.player) + '%" title="You: ' + fmt(match.player.banked) + '"></div>' +
+      '<div class="trocket opp" style="bottom:' + pos(match.ai) + '%" title="Opponent: ' + fmt(match.ai.banked) + '"></div>' +
+      '</div></div><div class="tzero">0</div>';
   }
 
   function itemsText(items) {
     if (!items || !items.length) return '';
-    return items.map(function (i) { return i.icon + ' ' + i.name + ' (' + i.text + ')'; }).join(', ');
+    return items.map(function (i) { return i.name + ' (' + i.text + ')'; }).join(', ');
   }
 
   function describeTurn(t, short) {
-    if (!t) return '<span class="muted" style="color:var(--muted)">No turns yet.</span>';
+    if (!t) return '<span class="muted">No turns yet.</span>';
     let s = '';
     if (t.type === 'cache') {
       s = '<span class="t-cache">Rolled ' + t.roll.join(' ') + ', cached</span> ' + t.hands.map(function (h) { return h.label; }).join(' + ');
@@ -311,7 +481,7 @@
       s = '<span class="t-launch">Launched</span> for ' + fmt(t.resolution.total);
     }
     if (t.items && t.items.length) s += ' · <span class="t-item">used ' + itemsText(t.items) + '</span>';
-    if (!short && t.reason) s += '<span class="why">“' + t.reason + '”</span>';
+    if (!short && t.reason) s += ' <span class="why">“' + t.reason + '”</span>';
     return s;
   }
 
@@ -323,174 +493,50 @@
     return (ch * 100).toFixed(ch < 0.1 && ch > 0 ? 1 : 0) + '%';
   }
 
-  function renderCenter() {
-    const p = match.player;
-    const tray = $('tray');
-    const status = $('status');
-    const sel = $('selinfo');
-    const actions = $('actions');
-    const risk = $('risk');
-
-    // Status line
-    if (targeting) {
-      const t = ITEM[targeting];
-      const what = t.target === 'ownDie' ? 'Click one of your dice' : t.target === 'oppDie' ? "Click one of the opponent's dice to copy" : "Click a hand on the opponent's pad to copy";
-      status.innerHTML = '<b>' + t.icon + ' ' + t.name + ':</b> ' + what + '. <span class="lock">Esc to cancel.</span>';
-    } else if (phase === 'choose') {
-      status.innerHTML = '<b>Your move.</b> Roll ' + p.available + ' dice to build thrust, or launch your pad. <span class="lock">Opponent has locked in their move.</span>';
-    } else if (phase === 'select') {
-      status.innerHTML = '<b>Select one or more scoring hands</b> to cache on your pad, then confirm. Items can change your dice first.';
-    } else if (phase === 'farkled') {
-      status.innerHTML = hasRescue()
-        ? '<b style="color:var(--bad)">You farkled</b>, but you can try a consumable to make a scoring hand. Or accept the farkle.'
-        : '<b>No scoring hand.</b> Your pad is destroyed.';
-    } else if (phase === 'reveal') {
-      status.innerHTML = 'Revealing round…';
-    } else {
-      status.innerHTML = '<b>Match over.</b>';
-    }
-
-    // Dice tray
-    const pickOwn = targeting && ITEM[targeting].target === 'ownDie';
-    let dice = '';
-    if (phase === 'select' || phase === 'farkled') {
-      p.dice.forEach(function (v, i) {
-        const cls = 'die' + (phase === 'select' || pickOwn ? ' clickable' : ' dead') + (selected.indexOf(i) >= 0 ? ' sel' : '') +
-          (rolledFresh && !p.bonus[i] ? ' rolling' : '') + (p.bonus[i] ? ' bonus' : '') + (pickOwn ? ' target' : '') + (i === changedDie ? ' changed' : '');
-        dice += '<button class="' + cls + '" data-i="' + i + '" style="animation-delay:' + (i * 40) + 'ms" aria-label="Die ' + (i + 1) + ': ' + v + '">' + v + '</button>';
-      });
-    } else {
-      for (let i = 0; i < p.available; i++) dice += '<div class="die blank">?</div>';
-      if (!p.available) dice = '<div class="hint" style="color:var(--muted);align-self:center">No dice left. Launch!</div>';
-    }
-    if (phase === 'farkled') dice += '<div class="farkle-banner" style="flex-basis:100%">FARKLE</div>';
-    tray.innerHTML = dice;
-    tray.querySelectorAll('.die[data-i]').forEach(function (b) {
-      b.addEventListener('click', function () { toggleDie(+b.dataset.i); });
-    });
-
-    renderOppTray();
-
-    // Selection info
-    if (phase === 'select') {
-      if (!selected.length) {
-        sel.innerHTML = '<span class="hint">Click dice (or press 1–' + p.dice.length + ') to select a hand.' + (p.bonus.some(Boolean) ? ' Copied dice (blue) are free: they don’t use up your live dice.' : '') + '</span>';
-      } else {
-        const hands = currentSelection();
-        if (!hands) {
-          sel.innerHTML = '<span class="invalid">Not a valid hand: every selected die must be part of a scoring hand.</span>';
-        } else {
-          const left = p.available - match.liveCount(p, selected);
-          sel.innerHTML = hands.map(function (h) {
-            return '<span class="hand">' + h.label + ' · ' + cmHtml(h.chips, h.mult) + '</span>';
-          }).join('') +
-            '<div class="hint">' + (left === 0 && cfg.hotDice ? '<b style="color:var(--accent)">Hot dice!</b> All six dice come back.' : left + ' dice left for the next roll') + '</div>';
-        }
-      }
-    } else if (phase === 'farkled') {
-      sel.innerHTML = '<span class="invalid">Accepting the farkle destroys your pad of ' + p.pad.length + ' hand' + (p.pad.length === 1 ? '' : 's') + '.</span>';
-    } else {
-      sel.innerHTML = '';
-    }
-
-    // Buttons
-    let a = '';
-    if (phase === 'choose') {
-      a += '<button class="primary" id="a-roll"' + (p.available ? '' : ' disabled') + '>Roll ' + p.available + ' dice<kbd>R</kbd></button>';
-      a += '<button class="danger" id="a-launch"' + (p.pad.length ? '' : ' disabled') + '>Launch pad<kbd>L</kbd></button>';
-    } else if (phase === 'select') {
-      a += '<button class="primary" id="a-cache"' + (currentSelection() ? '' : ' disabled') + '>Cache & end turn<kbd>Enter</kbd></button>';
-    } else if (phase === 'farkled') {
-      a += '<button class="danger" id="a-fcont">' + (hasRescue() ? 'Accept farkle (lose pad)' : 'End turn') + '<kbd>Enter</kbd></button>';
-    } else if (phase === 'over') {
-      a += '<button class="primary" id="a-again">Play again</button>';
-    }
-    actions.innerHTML = a;
-    bind('a-roll', onRoll);
-    bind('a-launch', onLaunch);
-    bind('a-cache', onCache);
-    bind('a-fcont', onFarkleContinue);
-    bind('a-again', continueRun);
-
-    // Farkle risk readout
-    if (cfg.showFarkleRisk && phase === 'choose' && p.available) {
-      risk.innerHTML = 'Farkle chance on a ' + p.available + '-die roll: <b>' + pctText(OF.farkleChance(p.available)) + '</b>';
-    } else if (cfg.showFarkleRisk && phase === 'select' && selected.length && currentSelection()) {
-      let left = p.available - match.liveCount(p, selected);
-      if (left === 0 && cfg.hotDice) left = 6;
-      risk.innerHTML = left ? 'Next roll would be ' + left + ' dice: <b>' + pctText(OF.farkleChance(left)) + '</b> farkle chance' : 'No dice left after this: you will have to launch.';
-    } else risk.innerHTML = '';
-  }
-
-  /** The opponent's roll for this round, shown once both ships have rolled. */
-  function renderOppTray() {
-    const el = $('opptray');
-    const ai = match.ai;
-    const pick = targeting === 'copyDie';
-    let body = '';
-    if (phase === 'choose') {
-      body = '<span class="hint">Their move is locked in. Their dice appear when you roll.</span>';
-    } else if (phase === 'select' || phase === 'farkled') {
-      if (ai.rolled) {
-        body = ai.rolled.map(function (v, j) {
-          return '<button class="die mini' + (pick ? ' clickable target' : '') + (rolledFresh ? ' rolling' : '') + '" data-j="' + j + '"' + (pick ? '' : ' tabindex="-1"') + '>' + v + '</button>';
-        }).join('');
-        if (!OF.hasScoring(ai.rolled)) body += '<span class="hint" style="align-self:center">No scoring dice… unless they use an item.</span>';
-      } else {
-        body = '<span class="hint">They chose to <b>launch</b> this round, so they have no roll.</span>';
-      }
-    } else {
-      body = '<span class="hint">—</span>';
-    }
-    el.innerHTML = '<div class="opplabel">Opponent’s roll</div><div class="oppdice">' + body + '</div>';
-    if (pick) {
-      el.querySelectorAll('.die[data-j]').forEach(function (b) {
-        b.addEventListener('click', function () { applyItem(+b.dataset.j); });
-      });
-    }
-  }
-
   function bind(id, fn) {
     const el = $(id);
     if (el) el.addEventListener('click', fn);
   }
 
-  function renderValues() {
-    $('mode-tag').textContent = cfg.scoringMode === 'pooled' ? 'pooled scoring' : 'per-hand scoring';
+  /** Hand values, power-ups and gauge tiers, in a dialog. */
+  function showHandValues() {
     let rows = '<tr><th>Hand</th><th>Dice</th><th class="num">Base</th><th class="num">With power-ups</th></tr>';
     OF.HAND_DEFS.forEach(function (h) {
       const base = cfg.hands[h.id];
       const v = OF.handValue(h.id, cfg);
-      rows += '<tr><td>' + h.name + '</td><td style="color:var(--muted)">' + OF.HAND_DICE_TEXT[h.id] + '</td>' +
+      rows += '<tr><td>' + h.name + '</td><td class="muted">' + OF.HAND_DICE_TEXT[h.id] + '</td>' +
         '<td class="num">' + cmHtml(base.chips, base.mult) + '</td>' +
         '<td class="num">' + cmHtml(v.chips, v.mult) + (v.boosts.length ? '<br><span class="boost">' + v.boosts.join(', ') + '</span>' : '') + '</td></tr>';
     });
-    $('values').innerHTML = rows;
-    $('formula').innerHTML = cfg.scoringMode === 'pooled'
-      ? 'At launch the pad resolves as <b>(total chips) × (total mult)</b> across every cached hand. Longer burns grow faster than linearly.'
-      : 'At launch each cached hand resolves as its own <b>chips × mult</b>, and the results are added.';
-
     const p = cfg.powerups;
-    $('powerups').innerHTML =
-      '<div class="pu' + (p.single.enabled ? '' : ' off') + '"><span>⚡ Single booster</span><span>Singles: +' + p.single.chips + ' chips</span></div>' +
-      '<div class="pu' + (p.run.enabled ? '' : ' off') + '"><span>🌀 Run booster</span><span>Small/medium straights: +' + p.run.mult + ' mult</span></div>' +
-      '<div class="pu' + (p.set.enabled ? '' : ' off') + '"><span>💎 Set booster</span><span>Of-a-kinds, two pair, full house, three pairs, two triplets: ×' + p.set.xmult + ' mult</span></div>';
-
     const th = OF.gaugeThresholds(cfg);
-    const names = [];
+    const tiers = [];
     for (let t = 1; t <= cfg.gaugeTiers; t++) {
       const lo = t === 1 ? 0 : th[t - 2];
       const hi = t - 1 < th.length ? th[t - 1] : null;
-      const nm = OF.gaugeTier(t === 1 ? 0 : lo, 1, cfg).name;
-      names.push('<b style="color:var(--text)">' + nm + '</b> ' + (hi === null ? fmt(lo) + '+' : fmt(lo) + '–' + fmt(hi)));
+      tiers.push('<b>' + OF.gaugeTier(t === 1 ? 0 : lo, 1, cfg).name + '</b> ' + (hi === null ? fmt(lo) + '+' : fmt(lo) + '–' + fmt(hi)));
     }
-    $('tiers').innerHTML = names.join(' · ') + '<br>The gauge shows a tier, never the exact launch total.';
+    openModal(
+      '<h3>Hand values <span class="muted" style="font-size:13px;font-weight:400">' + (cfg.scoringMode === 'pooled' ? 'pooled scoring' : 'per-hand scoring') + '</span></h3>' +
+      '<table class="values">' + rows + '</table>' +
+      '<p class="formula">' + (cfg.scoringMode === 'pooled'
+        ? 'At launch the pad resolves as <b>(total chips) × (total mult)</b> across every cached hand. Longer burns grow faster than linearly.'
+        : 'At launch each cached hand resolves as its own <b>chips × mult</b>, and the results are added.') + '</p>' +
+      '<h4>Power-ups <span class="muted" style="font-weight:400">same on both ships</span></h4><div class="powerups">' +
+      '<div class="pu' + (p.single.enabled ? '' : ' off') + '"><span>⚡ Single booster</span><span>Singles: +' + p.single.chips + ' chips</span></div>' +
+      '<div class="pu' + (p.run.enabled ? '' : ' off') + '"><span>🌀 Run booster</span><span>Small/medium straights: +' + p.run.mult + ' mult</span></div>' +
+      '<div class="pu' + (p.set.enabled ? '' : ' off') + '"><span>💎 Set booster</span><span>Of-a-kinds, two pair, full house, three pairs, two triplets: ×' + p.set.xmult + ' mult</span></div></div>' +
+      '<h4>Potential Energy tiers (level ' + level + ')</h4><p class="formula">' + tiers.join(' · ') + '<br>The gauge shows a tier, never the exact launch total.</p>' +
+      '<div class="foot"><button class="primary" id="hv-close">Close<kbd>Esc</kbd></button></div>',
+      closeModal
+    );
+    bind('hv-close', closeModal);
   }
 
-  function renderLog() {
-    $('log').innerHTML = roundLog.map(function (r) {
+  function roundLogHtml() {
+    return roundLog.map(function (r) {
       return '<div><span class="r">R' + r.round + '</span> You: ' + describeTurn(r.player, true) + ' &nbsp;|&nbsp; AI: ' + describeTurn(r.ai, true) + '</div>';
-    }).join('') || '<div style="color:var(--muted)">Nothing yet.</div>';
+    }).reverse().join('') || '<div class="muted">Nothing yet.</div>';
   }
 
   // ---------------------------------------------------------------------------
@@ -718,7 +764,8 @@
     const pass = function (ok, text) { return ok === null ? '' : '<div class="' + (ok ? 'pass' : 'fail') + '">' + (ok ? '✓ ' : '✗ ') + text + '</div>'; };
     const stat = function (v, k, extra) { return '<div class="stat"><div class="v">' + v + '</div><div class="k">' + k + '</div>' + (extra || '') + '</div>'; };
     openModal(
-      '<h3>Playtest log</h3>' +
+      '<h3>Round log <span class="muted" style="font-size:13px;font-weight:400">level ' + level + '</span></h3><div class="log">' + roundLogHtml() + '</div>' +
+      '<h3 style="margin-top:16px">Playtest log</h3>' +
       '<div class="form" style="margin-bottom:12px"><label>Tester name (saved with each match)<input type="text" id="tester" value="' + escapeHtml(tester()) + '" style="background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px;font:inherit"></label></div>' +
       '<div class="stats">' +
       stat(s.matches + ' <small style="font-size:13px;color:var(--muted)">(' + s.wins + ' won)</small>', 'Completed matches on this browser') +
@@ -898,6 +945,7 @@
   bind('btn-rules', showRules);
   bind('btn-tuning', showTuning);
   bind('btn-stats', showStats);
+  bind('btn-values', showHandValues);
   bind('btn-restart', function () {
     if ((level === 1 && match.round <= 1) || confirm('Start a new run at level 1? This level is logged as abandoned.')) newRun();
   });

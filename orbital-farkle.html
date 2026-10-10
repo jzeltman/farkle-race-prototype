@@ -19,10 +19,14 @@
   --bad: #ff5470;
   --chips: #4aa8ff;
   --mult: #ff5470;
+  --me: #6cc4ff;
+  --opp: #ff5a4a;
   --die: #f4f1e8;
   --die-text: #1a1f36;
   --sel: #ffb547;
-  --radius: 10px;
+  --radius: 12px;
+  --rocket-red: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAABVCAYAAAALzrdTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAA4BJREFUeAHtm/F10zAQxr/k8T9lgogJKBNgJigbuExAN4iZoN0gI5QNMkJhApsJkg0OnS0Hx4ksybJlqa+/965NXxRHn++kk08qMCME3EjbSxNIGSWCpJUsCikiO/6kRLS2Q2rITj/0RLT2DanA40Ejgu2QTIip8UAD9ozYkZ0sDCJayxArhpDqW4lY4VnJQQjbA2KDQ8VRRJwDv5P4XG2LWBjpjfi84uGNeLwiO3HrKWIyr6zhxw/4wyJyLIVj3pg9r/h4JMN08E3JsATyi18m9AjbHqGZOKy6NnrQjw2tO8xDjpDMEFbhw8shrPbScmkblW/uyfys4hVerkLuLTqz03z2xsKbU+QmM/KLnskjJyiPHhYPL4vweLS4xn7q8HKatTjWYS62/YYZU5svcMR1+hUWbWzupjC8n8ERVyE2d8qmdnVreD/DnJD9s0c+cA3bSst807Bhtulb0e2MmnqfHD6fYQ5UR2iEvZBdIvTKJy5jxBTXQ58TcCdzaewi5BPC4nTjXIQIhEW4DPiYhTDvbRtaCVEZPUN4piurUrMEP4yYdaayAr5QE6clAbSwjfdMRCJayzEGmu9x1scyFw3XdmRjMR6rdvmF9DuysVhJplRA89WrZhez6gkpkc5xi0raZyngyH+cEiI187VAOgh0Vsi1R5SbSqQHe+Mje6X1yBZpwovKehZrhaRzRuSSug69pibJpHkEqUHwD9+ttxg4C62UEfxjjdSP6aGedTevwSM1LMT6cTJiBAtJecY6YRtaXD2vEC/CZrCziK9YRsgv24Ymj9Qi1AqzQni+w7L4MDRGuiKYI8JyXDX2ExZidEL6IpgKYTntatmIWWsu0BfB/EVYzrbnTGL6HtGJuLhwAC6+b1AM/a9dcflnMKdQuDrXYIFBvrfttb9711Gv80QXnoYzNFsMvOo8PdiM5KiszVOVev1nqC/sGWpeFu11VuwJ2InQojzJS50PMC95KtUZ7zFHzZNtAb65lPgSRYXZBm+88Yogx/3BIFBzfmun8tCBDEsJOt8B4997iqEcRder94Wm7bXNozIa79D1MypFr41uByxHLJD+jHyh3teJ2CE2rqx/WnvUiBhcTy0GNYduSoeFYTwh1Yfs/ylmj9hRoWQSIhA7KsSGTkpskQqkP+RcIjU0uUUgNejyxHU6IdWns3wpo1mGjEWFWI7UCeWJf8KjjMOxXmahAAAAAElFTkSuQmCC");
+  --rocket-blue: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAABVCAYAAAALzrdTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAABedJREFUeAHtm11SG0cQx7tnZQiYVMQJspzAEODBTxYniP2aAmVVOUDwCRAnCJwgClApv4kbQJ5SZXCknCDyCawKcoQ+djo9i2QktB+zu7NCcvlXxYe0s9L+t7vno3sWIUOcGuVdt121eliqPF9qQIYIyBByb6sIUJBP6MKpfchDhmQmpHjdOiKgwuCl7boLv0CGIGTA3lVrH1FMXLgEenW29fQcMsC4EKfWtqVL//gfpaawumuVjdUmGMa4a0lJF8FHkYN/8VfIAKNCilcfy0Bgh7VhF3i5e3VTAMMYE6JcChAPdNoKtIxbxZgQkqAlYoCtOgQwiJFgd67aBYlhseGH2cA3YhHCWNYYgHkpF34GQ6S2SDJrDDFnldQWSWaNIeasksoiztvuuhT9GqTCjFVSWYQs18DdZKu4iz9CShILUeMGETlghtRdcWIhrnQLYA477WifWAiSMNZ1ep+HVopOI2Gwh89wkyOszmrSoE9kERbxPWRAmqBP6loOZADxzBgSEluIN8sFWI9qxxd1CRY6fbFk96XcIJQlduRG2DlqfZ90bZ+DmKjeCiP0E1LldPNpaeSt9/xT54s8Z/dR05nAGzFwr2OISWyLCMpFxUfjgYhPqEDuWp1XajQPOjmpe8UWwi4S6laIEJpceLOx2iAQ9cDzE7pXLCFqbhW1lCXCOkR9KVJoGwkLLyAmsYT0Rc+ObkXRd5OEHXYYJRYgJrGEWIiRd0rHx6Pck+dwBYhJvBghjOx2lY8Xr9uBA5tOpoU/ZT1unMTqfgnUndSZ1VCleHWzJnIrR5UN9HooldCWLosA1Jqj9fs5ddMuQRPtuZa6Q9zHf4CY8BfU+VeeIq0wwf7J1rL2eKLvWv2vIt3KD46Z9QQi1HmFOO21hXCC4RlMEdSYBo2iLYQHOhumix0n4PVdK6LvzwKL8t/ottUS4rxtrRMYXdpq0ae29lo+UogSIQVeqGwHTBnuJPa5Gy/rtA3tfr0lrap30NTjYwwi+fp0e+UorE2gkFkRcQ86J1tLvwUdDXQtXpdXZ0eEgiphKSNfIaoiCzH78WkgUFR/4Jj1PfbwjbsCjNmclTkwnxOi6vzp5Q3Gj4y+yCpflQEN0cOd0d0UYxYJr8jOFPbD3RSfhOitE2YKe7S24rnWHLnUA+5rK55FYlZkZwjMDxZgd67FI2fiVOVjYwnLy7MJVcx8jHmUKeQgrjPdrzUNhguwuRfC2OqXcIVrw5zz01/07edgEQ9Owwrt5eSs0oVbW3BWYW57rFF0XaseVW16TFCCLRAi51f1f63ODhI2YMoQkPZGziiLeCLOVcn4ESxiWd2SRCzrtBWcYQ+KkXsRHmR8Z2g41FSTwbPNpUMdMSKgMPNAhJeaacAUIbivfOmI8XOtCREKCfQepggH71h5LkqMoHGL+IpQ5CwRWRs0iV8tMkyMULWLwf+BIhSVDV4fTy/gG93e7R9+B3zFWLI5rFiFihjSFZ2dJ/JJgfU/U2U4vLNmirQRdyCITY4/b5xCjkMSWL/B27/Pt4KvRYnZfddmd6Ky9ykkmli8/q+mIyKMl5wEWFaZ8/7HVSu3GDrlcSHXUH9//w5TxxyLOVBiWHzBuwiYY5QYNfuFL3zhM0LlblXdHQySekv53ruWI8h6wZ0gl+fI5iTZ8cn21+Wg9uMVMGoiT0VcoOO0jyylX+pKkWcBDnnjCV8cWgdB5TIvo2mJ6n36CflcsFtW9xJSklrI6fbyEU/wLsfe9BETXAHDcpoxbIiR5IMr3dcTb46ICRLBlqyEldPiYOyptyIPTDCYMox9AcKRt/VpMtPP86nOzpvnqw0wgDEh3qYbuVjTL02EFzfjYvQ5xF3OIwuNh2LUVtrTreUdMIjRBN3Z9tIlsStFtev1OiUwjPFMoyU6h2Hre4lUNhUXoxh1rSFqkOQMpt+zho2TreU1yIBMcr+nmyuVibGFUb0UZERmSeyedVsadbGsXGpIZkK8HdeEh4OXjZboxt7vPlPsXbcvwrbPzg3TWkr/D8vurpecG5/fAAAAAElFTkSuQmCC");
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -35,162 +39,217 @@ body {
   font-size: 15px;
 }
 button {
-  font: inherit;
-  cursor: pointer;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--panel2);
-  color: var(--text);
-  padding: 8px 14px;
+  font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel2); color: var(--text); padding: 8px 14px;
 }
 button:hover:not(:disabled) { border-color: var(--accent); }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 button.primary { background: var(--accent); color: #241400; border-color: var(--accent); font-weight: 700; }
 button.danger { background: var(--accent2); color: #fff; border-color: var(--accent2); font-weight: 700; }
 button.ghost { background: transparent; }
+button.link { background: none; border: none; color: var(--accent); text-decoration: underline; padding: 0 4px; font-weight: 700; }
 kbd {
-  font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
-  padding: 0 4px; color: var(--muted); margin-left: 6px;
+  font-size: 11px; border: 1px solid currentColor; border-bottom-width: 2px; border-radius: 4px;
+  padding: 0 4px; opacity: 0.6; margin-left: 8px; font-weight: 400;
 }
+.muted { color: var(--muted); }
+.accent { color: var(--accent); }
+.bad { color: var(--bad); }
 
+/* Header */
 header {
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  padding: 10px 16px; border-bottom: 1px solid var(--line); background: rgba(11, 16, 32, 0.7);
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 10px 20px; background: #16244f; border-bottom: 1px solid var(--line);
 }
-header h1 { font-size: 18px; margin: 0; letter-spacing: 0.5px; }
-header .meta { color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap; }
+header h1 { font-size: 20px; margin: 0; }
+header .meta { display: flex; gap: 18px; color: var(--muted); font-size: 18px; }
 header .meta b { color: var(--text); }
 header .spacer { flex: 1; }
-header .tools { display: flex; gap: 6px; flex-wrap: wrap; }
+header .tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.hbtn { font-weight: 600; font-size: 16px; padding: 7px 12px; background: transparent; border-color: #4a5c99; }
+.hbtn.strong { background: var(--bg); border-color: var(--text); }
+.hbtn.ghost { color: var(--muted); }
 
-main {
+/* Board layout: hands | boards | track */
+.board {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 260px;
-  gap: 14px;
-  padding: 14px 16px;
-  max-width: 1300px;
-  margin: 0 auto;
+  grid-template-columns: 300px minmax(0, 720px) 230px;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "oh ob tr"
+    ".  mid tr"
+    "mh mb tr";
+  gap: 16px 22px;
+  justify-content: center;
+  padding: 18px 20px 24px;
+  min-height: calc(100vh - 62px);
 }
-@media (max-width: 960px) {
-  main { grid-template-columns: 1fr 1fr; }
-  #center { grid-column: 1 / -1; order: -1; }
+#opp-hands { grid-area: oh; }
+#opp-board { grid-area: ob; }
+#middle { grid-area: mid; }
+#my-hands { grid-area: mh; }
+#my-board { grid-area: mb; }
+#track { grid-area: tr; }
+
+@media (max-width: 1180px) {
+  .board {
+    grid-template-columns: minmax(0, 1fr) 150px;
+    grid-template-areas: "ob tr" "oh tr" "mid tr" "mb tr" "mh tr";
+    grid-template-rows: auto;
+  }
+  .handsbox { min-height: 0; }
+  .hlist { min-height: 40px; }
+  #track { position: sticky; top: 12px; height: calc(100vh - 100px); min-height: 360px; align-self: start; }
 }
-@media (max-width: 560px) {
-  main { grid-template-columns: 1fr; }
+@media (max-width: 640px) {
+  .board {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "ob" "oh" "mid" "mb" "mh" "tr";
+    padding: 12px 16px;
+  }
+  #track { position: static; height: 320px; min-height: 0; }
+  header .meta { font-size: 15px; }
+  .hbtn { font-size: 14px; padding: 5px 9px; }
 }
 
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 12px;
+/* Hands boxes (left column) */
+.handsbox {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px;
+  display: flex; flex-direction: column; min-height: 250px; align-self: stretch;
 }
-.panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 8px; }
-.panel h2 .tag { float: right; text-transform: none; letter-spacing: 0; }
+.handsbox .hhead { background: var(--panel2); border-radius: 8px; text-align: center; font-weight: 700; padding: 12px 8px; margin-bottom: 8px; }
+.hlist { list-style: none; margin: 0; padding: 0 4px; flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 14px; overflow: auto; max-height: 260px; }
+.hlist li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 4px; border-radius: 6px; font-weight: 600; }
+.hlist li.empty { color: var(--muted); font-weight: 400; }
+.hlist li.pick { cursor: pointer; outline: 1px dashed var(--chips); }
+.hlist li.pick:hover { background: #24407a; }
+.hfoot { padding: 8px 4px 2px; }
+.copied { font-size: 10px; color: var(--chips); border: 1px solid var(--chips); border-radius: 8px; padding: 0 4px; margin-left: 4px; font-weight: 400; }
 
-/* Ship panels */
-.ship { display: flex; flex-direction: column; gap: 10px; }
-.ship .name { font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: baseline; }
-.ship .banked { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.ship .banked small { font-size: 13px; color: var(--muted); font-weight: 400; }
-.track {
-  position: relative; height: 150px; border-radius: 8px; overflow: hidden;
-  background: linear-gradient(to top, #24315c 0%, #121a33 70%, #070a14 100%);
-  border: 1px solid var(--line);
+.gauge { display: flex; align-items: center; gap: 10px; }
+.gauge .glabel { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.gauge .segs { display: flex; gap: 5px; flex: 1; }
+.gauge .seg { flex: 1; height: 13px; border-radius: 7px; background: #2a3566; transition: background 0.3s; }
+.gauge .seg.on { background: linear-gradient(to right, var(--accent2), var(--accent)); box-shadow: 0 0 8px rgba(255, 140, 60, 0.45); }
+
+/* Ship boards (center column) */
+.ship-board {
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px;
 }
-.track .orbit {
-  position: absolute; top: 10px; left: 0; right: 0; border-top: 1px dashed var(--accent);
-  font-size: 10px; color: var(--accent); text-align: right; padding-right: 4px;
+.ship-board.opp { border-top: 3px solid var(--opp); }
+.ship-board.me { border-bottom: 3px solid var(--me); }
+.board-title { text-align: center; font-size: 22px; font-weight: 700; color: var(--muted); }
+.oppnote { font-size: 13px; color: var(--muted); text-align: center; min-height: 18px; }
+.oppnote b { color: var(--text); }
+
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pu-row, .it-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.pu-tile {
+  width: 46px; height: 46px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 22px;
+  background: var(--panel2); border: 2px solid var(--chips);
 }
-.track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(79, 209, 139, 0.15); transition: height 0.8s ease; }
-.track .rocket {
-  position: absolute; left: 50%; font-size: 28px; transform: translate(-50%, 50%) rotate(-45deg);
-  transition: bottom 1s cubic-bezier(.3,1.4,.5,1);
+.pu-tile.off { opacity: 0.3; filter: grayscale(1); }
+.it-tile {
+  min-width: 46px; height: 46px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 8px; font-weight: 800; font-size: 15px; background: var(--panel2); color: var(--text); border: 2px solid var(--accent);
 }
-.track .stars { position: absolute; inset: 0; background-image: radial-gradient(1px 1px at 20% 30%, #fff8, transparent), radial-gradient(1px 1px at 70% 15%, #fff6, transparent), radial-gradient(1px 1px at 40% 60%, #fff4, transparent), radial-gradient(1px 1px at 85% 45%, #fff5, transparent); }
+button.it-tile:disabled { opacity: 0.45; }
+button.it-tile.active { background: var(--accent); color: #241400; }
+.it-tile.slot { border: 2px dashed var(--line); background: transparent; }
 
-.gauge { display: flex; flex-direction: column; gap: 4px; }
-.gauge .label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
-.gauge .label b { color: var(--accent); }
-.gauge .segs { display: flex; gap: 3px; }
-.gauge .seg { flex: 1; height: 14px; border-radius: 3px; background: #26305a; transition: background 0.3s; }
-.gauge .seg.on { background: linear-gradient(to top, var(--accent2), var(--accent)); box-shadow: 0 0 8px rgba(255, 140, 60, 0.5); }
+.velocity { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+.velocity .vlabel { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.velocity .vsegs { display: flex; gap: 5px; flex: 1; }
+.velocity .seg { flex: 1; height: 15px; border-radius: 8px; background: #2a3566; transition: background 0.5s; }
+.velocity.me .seg.on { background: var(--me); }
+.velocity.opp .seg.on { background: var(--opp); }
+.rocket-ico { width: 18px; height: 30px; background: center / contain no-repeat; transform: rotate(45deg); flex: none; }
+.rocket-ico.me { background-image: var(--rocket-blue); }
+.rocket-ico.opp { background-image: var(--rocket-red); }
 
-.padlist { list-style: none; margin: 0; padding: 0; font-size: 13px; display: flex; flex-direction: column; gap: 3px; max-height: 180px; overflow: auto; }
-.padlist li { background: var(--bg2); padding: 4px 8px; border-radius: 6px; display: flex; justify-content: space-between; gap: 6px; }
-.padlist li .dice { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.padlist .empty { color: var(--muted); background: none; padding: 0; }
+.action-row { display: flex; gap: 12px; }
+.big-btn { flex: 1; font-size: 22px; font-weight: 800; padding: 18px 10px; border-radius: 8px; border: none; }
+.big-btn.roll { background: var(--good); color: #062614; }
+.big-btn.launch { background: var(--accent2); color: #2a0b00; }
+.big-btn:disabled { opacity: 0.3; }
 
-.lastturn { font-size: 13px; background: var(--bg2); border-radius: 6px; padding: 8px; min-height: 38px; }
-.lastturn .t-farkle { color: var(--bad); font-weight: 700; }
-.lastturn .t-launch { color: var(--good); font-weight: 700; }
-.lastturn .t-cache { color: var(--accent); font-weight: 700; }
-.lastturn .why { color: var(--muted); font-style: italic; display: block; margin-top: 2px; }
-
-.powerups { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-.powerups .pu { display: flex; justify-content: space-between; background: var(--bg2); padding: 4px 8px; border-radius: 6px; }
-.powerups .pu.off { opacity: 0.4; text-decoration: line-through; }
-
-/* Center */
-#center { display: flex; flex-direction: column; gap: 14px; }
-.status {
-  text-align: center; font-size: 15px; min-height: 22px; color: var(--muted);
-}
-.status b { color: var(--text); }
-.status .lock { color: var(--accent); }
-
-.tray {
-  display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 18px 8px; min-height: 106px;
-  background: radial-gradient(ellipse at center, #1f2b57 0%, var(--panel) 70%); border-radius: var(--radius); border: 1px solid var(--line);
-}
+.dice-row { display: flex; gap: 12px; justify-content: center; }
 .die {
-  width: 64px; height: 64px; border-radius: 10px; background: var(--die); color: var(--die-text);
-  display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800;
+  flex: 1 1 0; max-width: 104px; aspect-ratio: 1; border-radius: 10px; background: var(--die); color: var(--die-text);
+  display: flex; align-items: center; justify-content: center; font-size: clamp(22px, 4vw, 38px); font-weight: 800;
   box-shadow: 0 4px 0 #b8b2a2, 0 6px 14px rgba(0, 0, 0, 0.4); user-select: none; border: 3px solid transparent;
-  transition: transform 0.12s, border-color 0.12s;
-  padding: 0;
+  transition: transform 0.12s, border-color 0.12s; padding: 0; min-width: 0;
 }
+.die.static { cursor: default; }
 .die.clickable:hover { transform: translateY(-3px); }
 .die.sel { border-color: var(--sel); transform: translateY(-6px); box-shadow: 0 4px 0 #b8b2a2, 0 0 18px rgba(255, 181, 71, 0.8); }
-.die.blank { background: #2a3566; color: #5a6699; box-shadow: none; font-size: 20px; }
-.die.dead { opacity: 0.35; }
+.die.blank { background: var(--panel2); box-shadow: none; }
+.die.blank.gone { background: transparent; border: 2px dashed #2a3566; }
+.die.dead { opacity: 0.4; }
+.die.bonus { background: #d7e9ff; box-shadow: 0 4px 0 #8fb3dd, 0 6px 14px rgba(0, 0, 0, 0.4); border-color: var(--chips); }
+.die.bonus.sel { border-color: var(--sel); }
+.die.target { outline: 2px dashed var(--chips); outline-offset: 3px; cursor: crosshair; }
+.die.changed { animation: pop 0.4s ease-out; }
 .die.rolling { animation: tumble 0.45s ease-out; }
 @keyframes tumble {
   0% { transform: rotate(-200deg) scale(0.6); opacity: 0.2; }
   70% { transform: rotate(15deg) scale(1.08); }
   100% { transform: rotate(0) scale(1); opacity: 1; }
 }
+@keyframes pop { 0% { transform: scale(1.3); } 100% { transform: scale(1); } }
 
-.selinfo { min-height: 50px; text-align: center; font-size: 14px; }
+/* Middle gap: status and selection */
+.middle { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; text-align: center; min-height: 120px; }
+.middle .status { font-size: 16px; color: var(--muted); }
+.middle .status b { color: var(--text); }
+.middle .status b.bad { color: var(--bad); }
+.middle .lock { color: var(--accent); }
+.middle .hint { color: var(--muted); font-size: 14px; }
 .selinfo .hand { display: inline-block; margin: 3px 4px; background: var(--panel2); padding: 4px 10px; border-radius: 20px; border: 1px solid var(--line); }
-.selinfo .invalid { color: var(--bad); }
-.selinfo .hint { color: var(--muted); }
+.risk { font-size: 13px; color: var(--muted); }
+.risk b { color: var(--text); }
+.farkle-banner { color: var(--bad); font-weight: 900; font-size: 30px; letter-spacing: 3px; animation: shake 0.4s; }
+@keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
 .cm { font-variant-numeric: tabular-nums; font-weight: 700; }
 .cm .c { color: var(--chips); }
 .cm .m { color: var(--mult); }
+.t-farkle { color: var(--bad); font-weight: 700; }
+.t-launch { color: var(--good); font-weight: 700; }
+.t-cache { color: var(--accent); font-weight: 700; }
+.t-item { color: var(--chips); }
+.why { font-style: italic; }
 
-.actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-.actions button { min-width: 140px; padding: 12px 18px; font-size: 16px; }
-.risk { text-align: center; font-size: 12px; color: var(--muted); }
-.risk b { color: var(--text); }
-
-.farkle-banner {
-  text-align: center; color: var(--bad); font-weight: 900; font-size: 26px; letter-spacing: 2px; animation: shake 0.4s;
+/* Race track (right column) */
+.track { display: flex; flex-direction: column; align-items: center; padding: 8px 0; min-height: 420px; }
+.track .tlabel { font-weight: 700; font-size: 15px; }
+.track .ttarget { font-size: 36px; font-weight: 800; margin-bottom: 10px; font-variant-numeric: tabular-nums; }
+.tline-wrap { flex: 1; width: 100%; position: relative; padding: 4px 0 30px; }
+.tline { position: absolute; top: 4px; bottom: 30px; left: 50%; width: 4px; margin-left: -2px; background: var(--text); border-radius: 2px; }
+.tick { position: absolute; left: -40px; width: 84px; height: 3px; background: var(--text); transform: translateY(50%); }
+.tick span { position: absolute; left: 96px; top: -9px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.trocket {
+  position: absolute; width: 40px; height: 68px; background: center / contain no-repeat;
+  transform: translateY(50%); transition: bottom 1s cubic-bezier(.3, 1.3, .5, 1);
 }
-@keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+.trocket.me { right: 18px; background-image: var(--rocket-blue); }
+.trocket.opp { left: 18px; background-image: var(--rocket-red); }
+.track .tzero { font-size: 30px; font-weight: 800; margin-top: -26px; margin-left: 4px; }
 
-/* Hand values table */
-table.values { width: 100%; border-collapse: collapse; font-size: 13px; }
-table.values th, table.values td { padding: 4px 6px; text-align: left; border-bottom: 1px solid var(--line); }
+/* Dialog content moved off the board */
+table.values { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.values th, table.values td { padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--line); }
 table.values th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
 table.values td.num { text-align: right; font-variant-numeric: tabular-nums; }
 table.values td .boost { color: var(--accent); font-size: 11px; }
-.formula { font-size: 12px; color: var(--muted); margin-top: 8px; }
-.bottom { grid-column: 1 / -1; display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; }
-@media (max-width: 960px) { .bottom { grid-template-columns: 1fr; } }
-
-.log { font-size: 12px; max-height: 260px; overflow: auto; display: flex; flex-direction: column-reverse; gap: 2px; }
-.log div { padding: 3px 6px; border-radius: 4px; background: var(--bg2); }
+.formula { font-size: 13px; color: var(--muted); }
+.formula b { color: var(--text); }
+.modal h4 { margin: 14px 0 6px; }
+.powerups { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.powerups .pu { display: flex; justify-content: space-between; gap: 10px; background: var(--bg2); padding: 6px 10px; border-radius: 6px; }
+.powerups .pu.off { opacity: 0.4; text-decoration: line-through; }
+.log { font-size: 13px; max-height: 220px; overflow: auto; display: flex; flex-direction: column; gap: 3px; }
+.log div { padding: 4px 8px; border-radius: 4px; background: var(--bg2); }
 .log .r { color: var(--muted); }
 
 /* Overlay / modal */
@@ -246,87 +305,34 @@ table.edit input { width: 64px; background: var(--bg2); color: var(--text); bord
 .rules { font-size: 14px; line-height: 1.5; }
 .rules li { margin-bottom: 4px; }
 
-/* Consumables */
-.items { display: flex; flex-wrap: wrap; gap: 5px; }
-.item {
-  font-size: 12px; padding: 4px 8px; border-radius: 14px; display: inline-flex; align-items: center; gap: 4px;
-  background: var(--bg2); border: 1px solid var(--line); color: var(--text);
-}
-.item .ico { color: var(--accent); font-weight: 900; }
-.item b { color: var(--muted); font-weight: 600; }
-.item.none { opacity: 0.35; }
-button.item:not(:disabled) { border-color: var(--accent); }
-button.item.active { background: var(--accent); color: #241400; }
-button.item.active .ico, button.item.active b { color: #241400; }
-.padlist li.pick { cursor: pointer; outline: 1px dashed var(--chips); }
-.padlist li.pick:hover { background: #24407a; }
-.copied { font-size: 10px; color: var(--chips); border: 1px solid var(--chips); border-radius: 8px; padding: 0 4px; margin-left: 4px; }
-.t-item { color: var(--chips); }
 .card .used { color: var(--chips); font-size: 13px; margin-top: 6px; }
-
-.die.bonus { background: #d7e9ff; box-shadow: 0 4px 0 #8fb3dd, 0 6px 14px rgba(0, 0, 0, 0.4); border-color: var(--chips); }
-.die.bonus.sel { border-color: var(--sel); }
-.die.target { outline: 2px dashed var(--chips); outline-offset: 3px; cursor: crosshair; }
-.die.changed { animation: pop 0.4s ease-out; }
-@keyframes pop { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
-
-.opptray { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; }
-.opptray .opplabel { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
-.opptray .oppdice { display: flex; gap: 8px; flex-wrap: wrap; min-height: 40px; align-items: center; }
-.opptray .hint { color: var(--muted); font-size: 13px; }
-.die.mini { width: 40px; height: 40px; font-size: 20px; border-radius: 7px; box-shadow: 0 3px 0 #b8b2a2; border-width: 2px; cursor: default; }
-.die.mini.clickable { cursor: crosshair; }
-.die.mini.clickable:hover { transform: translateY(-2px); }
-.item.slot { border-style: dashed; color: var(--muted); opacity: 0.6; }
 </style>
 </head>
 <body>
   <header>
     <h1>🚀 Orbital Farkle</h1>
     <div class="meta">
-      <span>Level <b id="level">1</b></span>
       <span>Round <b id="round">1</b></span>
-      <span>Orbit at <b id="target">0</b></span>
-      <span id="overtime" hidden><b style="color:var(--accent)">OVERTIME</b></span>
+      <span>Level <b id="level">1</b></span>
+      <span id="overtime" hidden><b class="accent">OVERTIME</b></span>
     </div>
     <div class="spacer"></div>
     <div class="tools">
-      <button class="ghost" id="btn-rules">Rules</button>
-      <button class="ghost" id="btn-tuning">Tuning</button>
-      <button class="ghost" id="btn-stats">Playtest log</button>
-      <button id="btn-restart">New run</button>
+      <button class="hbtn strong" id="btn-values">Hand Values</button>
+      <button class="hbtn" id="btn-rules">Rules</button>
+      <button class="hbtn" id="btn-tuning">Tuning</button>
+      <button class="hbtn" id="btn-stats">Log</button>
+      <button class="hbtn ghost" id="btn-restart" title="Start a new run at level 1">New run</button>
     </div>
   </header>
 
-  <main>
-    <section class="panel ship" id="side-player"></section>
-
-    <section id="center">
-      <div class="status" id="status"></div>
-      <div class="tray" id="tray"></div>
-      <div class="selinfo" id="selinfo"></div>
-      <div class="actions" id="actions"></div>
-      <div class="risk" id="risk"></div>
-      <div class="opptray" id="opptray"></div>
-    </section>
-
-    <section class="panel ship" id="side-ai"></section>
-
-    <div class="bottom">
-      <section class="panel">
-        <h2>Hand values <span class="tag" id="mode-tag"></span></h2>
-        <table class="values" id="values"></table>
-        <div class="formula" id="formula"></div>
-      </section>
-      <section class="panel">
-        <h2>Power-ups <span class="tag">same loadout on both ships</span></h2>
-        <div class="powerups" id="powerups"></div>
-        <h2 style="margin-top:14px">Thrust gauge tiers</h2>
-        <div class="formula" id="tiers" style="margin-top:0"></div>
-        <h2 style="margin-top:14px">Round log</h2>
-        <div class="log" id="log"></div>
-      </section>
-    </div>
+  <main class="board">
+    <section class="handsbox opp" id="opp-hands"></section>
+    <section class="ship-board opp" id="opp-board"></section>
+    <section class="middle" id="middle"></section>
+    <section class="handsbox me" id="my-hands"></section>
+    <section class="ship-board me" id="my-board"></section>
+    <aside class="track" id="track"></aside>
   </main>
 
   <div class="overlay" id="overlay" hidden>
@@ -1543,91 +1549,261 @@ button.item.active .ico, button.item.active b { color: #241400; }
   // Rendering
   // ---------------------------------------------------------------------------
 
+  // Short labels for item tiles.
+  const ITEM_LABEL = { nudgeUp: '+1', nudgeDown: '−1', reroll: 'Reroll', intercept: 'Intercept', copyDie: 'Copy' };
+
   function render() {
     $('level').textContent = level;
     $('round').textContent = match.round;
-    $('target').textContent = fmt(cfg.targetScore);
     $('overtime').hidden = !match.overtime;
-    renderSide($('side-player'), match.player, true);
-    renderSide($('side-ai'), match.ai, false);
-    renderCenter();
-    renderValues();
-    renderLog();
+    renderHands($('opp-hands'), match.ai, false);
+    renderHands($('my-hands'), match.player, true);
+    renderOppBoard();
+    renderMiddle();
+    renderMyBoard();
+    renderTrack();
   }
 
-  function gaugeHtml(side) {
+  function gaugeHtml(side, label) {
     const g = match.gauge(side);
     let segs = '';
     for (let i = 0; i < g.of; i++) segs += '<div class="seg' + (i < g.tier ? ' on' : '') + '"></div>';
-    return (
-      '<div class="gauge"><div class="label"><span>Pending thrust</span><b>' + g.name + '</b></div>' +
-      '<div class="segs">' + segs + '</div></div>'
-    );
+    return '<div class="gauge" title="' + g.name + '"><span class="glabel">' + label + '</span><div class="segs">' + segs + '</div></div>';
   }
 
-  function renderSide(el, side, isPlayer) {
-    const pct = Math.min(1, side.banked / cfg.targetScore);
-    const need = Math.max(0, cfg.targetScore - side.banked);
-    let html =
-      '<div class="name"><span>' + (isPlayer ? 'You' : 'Opponent (AI)') + '</span>' +
-      '<span class="muted" style="font-size:12px;color:var(--muted)">' + side.available + ' dice live</span></div>' +
-      '<div class="banked">' + fmt(side.banked) + ' <small>banked · ' + fmt(need) + ' to orbit</small></div>' +
-      '<div class="track"><div class="stars"></div><div class="orbit">ORBIT ' + fmt(cfg.targetScore) + '</div>' +
-      '<div class="fill" style="height:' + (pct * 85) + '%"></div>' +
-      '<div class="rocket" style="bottom:' + (8 + pct * 80) + '%">🚀</div></div>' +
-      gaugeHtml(side);
+  /** "Velocity: banked / target" with a 10-segment progress bar. */
+  function velocityHtml(side, who) {
+    const n = 10;
+    const on = Math.min(n, Math.floor((side.banked / cfg.targetScore) * n));
+    let segs = '';
+    for (let i = 0; i < n; i++) segs += '<div class="seg' + (i < on ? ' on' : '') + '"></div>';
+    return '<div class="velocity ' + who + '"><span class="rocket-ico ' + who + '"></span>' +
+      '<span class="vlabel">Velocity: ' + fmt(side.banked) + ' / ' + fmt(cfg.targetScore) + '</span><div class="vsegs">' + segs + '</div></div>';
+  }
 
-    // Pad hands are listed by name for both ships (never the total). The opponent's are
-    // what Intercept copies from, so they become clickable while targeting.
-    const pickHand = !isPlayer && targeting === 'intercept';
-    // The AI doesn't act until the round resolves, so during your turn its pad is the round-start pad Intercept copies from.
-    const pad = side.pad;
-    html += '<div><h2 style="margin:4px 0 6px">' + (isPlayer ? 'Launch pad' : 'Their pad') + ' · ' + pad.length + ' hand' + (pad.length === 1 ? '' : 's') + '</h2>';
-    if (!pad.length) {
-      html += '<ul class="padlist"><li class="empty">' + (isPlayer ? 'Empty. Roll and cache hands to build thrust.' : 'Empty.') + '</li></ul>';
+  /** Left column: the hands cached this burn, with per-hand chips x mult (never the pad total). */
+  function renderHands(el, side, isPlayer) {
+    const pick = !isPlayer && targeting === 'intercept';
+    let rows = '';
+    if (!side.pad.length) {
+      rows = '<li class="empty">' + (isPlayer ? 'No hands cached yet.' : 'Nothing cached.') + '</li>';
     } else {
-      html += '<ul class="padlist">' + pad.map(function (h, i) {
-        return '<li' + (pickHand ? ' class="pick" data-h="' + i + '"' : '') + '><span>' + h.label + (h.copied ? ' <span class="copied">copied</span>' : '') + '</span><span class="dice">' + h.dice.join(' ') + '</span></li>';
-      }).join('') + '</ul>';
+      rows = side.pad.map(function (h, i) {
+        return '<li' + (pick ? ' class="pick" data-h="' + i + '"' : '') + '><span>' + h.label + (h.copied ? ' <span class="copied">copied</span>' : '') +
+          '</span><span class="cm"><span class="c">' + h.chips + '</span>×<span class="m">' + h.mult + '</span></span></li>';
+      }).join('');
     }
-    html += '</div>';
-    if (!isPlayer) {
-      html += '<div><h2 style="margin:4px 0 6px">Last turn</h2><div class="lastturn">' + describeTurn(side.lastTurn, false) + '</div></div>';
-    }
-    html += '<div><h2 style="margin:4px 0 6px">' + (isPlayer ? 'Your items' : 'Their items') + ' · ' + OF.inventoryCount(side.inventory) + '/' + cfg.consumables.capacity + '</h2>' + inventoryHtml(side, isPlayer) + '</div>';
-    el.innerHTML = html;
+    el.innerHTML =
+      '<div class="hhead">' + (isPlayer ? 'Hands this turn' : 'Opponent’s Hands this turn') + '</div>' +
+      '<ul class="hlist">' + rows + '</ul>' +
+      '<div class="hfoot">' + gaugeHtml(side, 'Potential Energy') + '</div>';
     el.querySelectorAll('li.pick').forEach(function (li) {
       li.addEventListener('click', function () { applyItem(+li.dataset.h); });
     });
-    el.querySelectorAll('button.item').forEach(function (b) {
-      b.addEventListener('click', function () { onItem(b.dataset.id); });
-    });
   }
 
-  /** One chip per inventory slot: owned items, then empty slots up to capacity. */
-  function inventoryHtml(side, isPlayer) {
+  function powerupsHtml() {
+    const p = cfg.powerups;
+    const tile = function (on, icon, text) {
+      return '<span class="pu-tile' + (on ? '' : ' off') + '" title="' + text + '">' + icon + '</span>';
+    };
+    return '<div class="pu-row">' +
+      tile(p.single.enabled, '⚡', 'Single booster: singles +' + p.single.chips + ' chips') +
+      tile(p.run.enabled, '🌀', 'Run booster: small and medium straights +' + p.run.mult + ' mult') +
+      tile(p.set.enabled, '💎', 'Set booster: of-a-kinds, two pair, full house, three pairs, two triplets ×' + p.set.xmult + ' mult') +
+      '</div>';
+  }
+
+  /** One tile per inventory slot: owned items, then empty slots up to capacity. */
+  function itemsHtml(side, isPlayer) {
     let html = '';
     OF.CONSUMABLE_DEFS.forEach(function (c) {
       for (let k = 0; k < (side.inventory[c.id] || 0); k++) {
+        const tip = c.name + ': ' + c.desc;
         if (!isPlayer) {
-          html += '<span class="item static" title="' + c.desc + '"><span class="ico">' + c.icon + '</span>' + c.name + '</span>';
+          html += '<span class="it-tile" title="' + tip + '">' + ITEM_LABEL[c.id] + '</span>';
         } else {
-          html += '<button class="item' + (targeting === c.id ? ' active' : '') + '" data-id="' + c.id + '"' + (itemUsable(c.id) ? '' : ' disabled') +
-            ' title="' + c.desc + '"><span class="ico">' + c.icon + '</span>' + c.name + '</button>';
+          html += '<button class="it-tile' + (targeting === c.id ? ' active' : '') + '" data-id="' + c.id + '"' + (itemUsable(c.id) ? '' : ' disabled') +
+            ' title="' + tip + '">' + ITEM_LABEL[c.id] + '</button>';
         }
       }
     });
-    for (let k = OF.inventoryCount(side.inventory); k < cfg.consumables.capacity; k++) html += '<span class="item slot">empty</span>';
-    return '<div class="items">' + html + '</div>';
+    for (let k = OF.inventoryCount(side.inventory); k < cfg.consumables.capacity; k++) html += '<span class="it-tile slot" title="Empty slot"></span>';
+    return '<div class="it-row">' + html + '</div>';
+  }
+
+  function toolbarHtml(side, isPlayer) {
+    return '<div class="toolbar">' + powerupsHtml() + itemsHtml(side, isPlayer) + '</div>';
+  }
+
+  function dieHtml(v, cls, attrs) {
+    return '<button class="die ' + cls + '" ' + attrs + '>' + v + '</button>';
+  }
+
+  function blankDice(n) {
+    let s = '';
+    for (let i = 0; i < 6; i++) s += '<div class="die blank' + (i < n ? '' : ' gone') + '"></div>';
+    return s;
+  }
+
+  function renderOppBoard() {
+    const ai = match.ai;
+    const el = $('opp-board');
+    const pick = targeting === 'copyDie';
+    let dice = '';
+    let note = '';
+    if ((phase === 'select' || phase === 'farkled') && ai.rolled) {
+      dice = ai.rolled.map(function (v, j) {
+        return dieHtml(v, (pick ? 'clickable target' : 'static') + (rolledFresh ? ' rolling' : ''), 'data-j="' + j + '"' + (pick ? '' : ' tabindex="-1"'));
+      }).join('');
+      if (!OF.hasScoring(ai.rolled)) note = 'No scoring dice… unless they use an item.';
+    } else {
+      dice = blankDice(ai.available);
+      if (phase === 'select' || phase === 'farkled') note = 'They chose to <b>launch</b> this round, so they have no roll.';
+    }
+    el.innerHTML =
+      toolbarHtml(ai, false) +
+      '<div class="dice-row">' + dice + '</div>' +
+      velocityHtml(ai, 'opp') +
+      '<div class="oppnote">' + (note || (ai.lastTurn ? 'Last turn: ' + describeTurn(ai.lastTurn, false) : phase === 'choose' ? 'Their dice appear when you roll.' : '')) + '</div>' +
+      '<div class="board-title">Opponent Information</div>';
+    if (pick) {
+      el.querySelectorAll('.die[data-j]').forEach(function (b) {
+        b.addEventListener('click', function () { applyItem(+b.dataset.j); });
+      });
+    }
+  }
+
+  function renderMyBoard() {
+    const p = match.player;
+    const el = $('my-board');
+    const pickOwn = targeting && ITEM[targeting].target === 'ownDie';
+
+    let actions = '';
+    if (phase === 'choose' || phase === 'reveal' || phase === 'over') {
+      const live = phase === 'choose';
+      actions = '<button class="big-btn roll" id="a-roll"' + (live && p.available ? '' : ' disabled') + '>Roll<kbd>R</kbd></button>' +
+        '<button class="big-btn launch" id="a-launch"' + (live && p.pad.length ? '' : ' disabled') + '>Launch<kbd>L</kbd></button>';
+    } else if (phase === 'select') {
+      actions = '<button class="big-btn roll wide" id="a-cache"' + (currentSelection() ? '' : ' disabled') + '>Cache & end turn<kbd>Enter</kbd></button>';
+    } else if (phase === 'farkled') {
+      actions = '<button class="big-btn launch wide" id="a-fcont">' + (hasRescue() ? 'Accept farkle (lose pad)' : 'End turn (pad destroyed)') + '<kbd>Enter</kbd></button>';
+    }
+
+    let dice = '';
+    if (phase === 'select' || phase === 'farkled') {
+      dice = p.dice.map(function (v, i) {
+        const cls = (phase === 'select' || pickOwn ? 'clickable' : 'dead') + (selected.indexOf(i) >= 0 ? ' sel' : '') +
+          (rolledFresh && !p.bonus[i] ? ' rolling' : '') + (p.bonus[i] ? ' bonus' : '') + (pickOwn ? ' target' : '') + (i === changedDie ? ' changed' : '');
+        return dieHtml(v, cls, 'data-i="' + i + '" style="animation-delay:' + i * 40 + 'ms" aria-label="Die ' + (i + 1) + ': ' + v + '"');
+      }).join('');
+    } else {
+      dice = blankDice(p.available);
+    }
+
+    el.innerHTML =
+      velocityHtml(p, 'me') +
+      '<div class="action-row">' + actions + '</div>' +
+      '<div class="dice-row">' + dice + '</div>' +
+      toolbarHtml(p, true);
+
+    el.querySelectorAll('.die[data-i]').forEach(function (b) {
+      b.addEventListener('click', function () { toggleDie(+b.dataset.i); });
+    });
+    el.querySelectorAll('button.it-tile').forEach(function (b) {
+      b.addEventListener('click', function () { onItem(b.dataset.id); });
+    });
+    bind('a-roll', onRoll);
+    bind('a-launch', onLaunch);
+    bind('a-cache', onCache);
+    bind('a-fcont', onFarkleContinue);
+  }
+
+  /** The gap between the two boards: status, the current selection, and farkle risk. */
+  function renderMiddle() {
+    const p = match.player;
+    let status = '';
+    if (targeting) {
+      const t = ITEM[targeting];
+      const what = t.target === 'ownDie' ? 'Click one of your dice' : t.target === 'oppDie' ? "Click one of the opponent's dice to copy" : "Click one of the opponent's hands to copy";
+      status = '<b>' + t.name + ':</b> ' + what + '. <span class="lock">Esc to cancel.</span>';
+    } else if (phase === 'choose') {
+      status = '<b>Your move.</b> Roll ' + p.available + ' dice to build thrust, or launch your pad. <span class="lock">The opponent has locked in their move.</span>';
+    } else if (phase === 'select') {
+      status = '<b>Select one or more scoring hands</b> to cache, then confirm. Items can change your dice first.';
+    } else if (phase === 'farkled') {
+      status = hasRescue()
+        ? '<b class="bad">You farkled</b>, but you can try an item to make a scoring hand. Or accept the farkle.'
+        : '<b class="bad">Farkle!</b> No scoring hand. Your pad is destroyed.';
+    } else if (phase === 'reveal') {
+      status = 'Revealing round…';
+    } else if (phase === 'over') {
+      status = '<b>Level over.</b> <button class="link" id="a-again">' + (match.winner === 'player' ? 'Next level' : 'New run') + '</button>';
+    }
+
+    let sel = '';
+    if (phase === 'select') {
+      if (!selected.length) {
+        sel = '<span class="hint">Click dice (or press 1–' + p.dice.length + ') to select a hand.' + (p.bonus.some(Boolean) ? ' Copied dice (blue) are free: they don’t use up your live dice.' : '') + '</span>';
+      } else {
+        const hands = currentSelection();
+        if (!hands) {
+          sel = '<span class="bad">Not a valid hand: every selected die must be part of a scoring hand.</span>';
+        } else {
+          const left = p.available - match.liveCount(p, selected);
+          sel = hands.map(function (h) { return '<span class="hand">' + h.label + ' · ' + cmHtml(h.chips, h.mult) + '</span>'; }).join('') +
+            '<div class="hint">' + (left === 0 && cfg.hotDice ? '<b class="accent">Hot dice!</b> All six dice come back.' : left + ' dice left for the next roll') + '</div>';
+        }
+      }
+    } else if (phase === 'farkled') {
+      sel = '<span class="bad">Accepting the farkle destroys your pad of ' + p.pad.length + ' hand' + (p.pad.length === 1 ? '' : 's') + '.</span>';
+    }
+
+    let risk = '';
+    if (cfg.showFarkleRisk && phase === 'choose' && p.available) {
+      risk = 'Farkle chance on a ' + p.available + '-die roll: <b>' + pctText(OF.farkleChance(p.available)) + '</b>';
+    } else if (cfg.showFarkleRisk && phase === 'select' && selected.length && currentSelection()) {
+      let left = p.available - match.liveCount(p, selected);
+      if (left === 0 && cfg.hotDice) left = 6;
+      risk = left ? 'Next roll would be ' + left + ' dice: <b>' + pctText(OF.farkleChance(left)) + '</b> farkle chance' : 'No dice left after this: you will have to launch.';
+    }
+
+    $('middle').innerHTML = '<div class="status">' + status + '</div><div class="selinfo">' + sel + '</div><div class="risk">' + risk + '</div>' +
+      (phase === 'farkled' ? '<div class="farkle-banner">FARKLE</div>' : '');
+    bind('a-again', continueRun);
+  }
+
+  /** Right column: a vertical race track from 0 to the target with both rockets on it. */
+  function niceStep(target) {
+    const raw = target / 3;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const steps = [1, 2, 2.5, 5, 10].map(function (m) { return m * mag; });
+    return steps.reduce(function (b, s) { return Math.abs(s - raw) < Math.abs(b - raw) ? s : b; });
+  }
+
+  function renderTrack() {
+    const t = cfg.targetScore;
+    const step = niceStep(t);
+    let ticks = '';
+    for (let v = step; v < t - step * 0.25; v += step) {
+      ticks += '<div class="tick" style="bottom:' + (v / t) * 100 + '%"><span>' + fmt(v) + '</span></div>';
+    }
+    const pos = function (side) { return Math.min(1, side.banked / t) * 100; };
+    $('track').innerHTML =
+      '<div class="tlabel">Target Velocity</div><div class="ttarget">' + fmt(t) + '</div>' +
+      '<div class="tline-wrap"><div class="tline">' + ticks +
+      '<div class="trocket me" style="bottom:' + pos(match.player) + '%" title="You: ' + fmt(match.player.banked) + '"></div>' +
+      '<div class="trocket opp" style="bottom:' + pos(match.ai) + '%" title="Opponent: ' + fmt(match.ai.banked) + '"></div>' +
+      '</div></div><div class="tzero">0</div>';
   }
 
   function itemsText(items) {
     if (!items || !items.length) return '';
-    return items.map(function (i) { return i.icon + ' ' + i.name + ' (' + i.text + ')'; }).join(', ');
+    return items.map(function (i) { return i.name + ' (' + i.text + ')'; }).join(', ');
   }
 
   function describeTurn(t, short) {
-    if (!t) return '<span class="muted" style="color:var(--muted)">No turns yet.</span>';
+    if (!t) return '<span class="muted">No turns yet.</span>';
     let s = '';
     if (t.type === 'cache') {
       s = '<span class="t-cache">Rolled ' + t.roll.join(' ') + ', cached</span> ' + t.hands.map(function (h) { return h.label; }).join(' + ');
@@ -1638,7 +1814,7 @@ button.item.active .ico, button.item.active b { color: #241400; }
       s = '<span class="t-launch">Launched</span> for ' + fmt(t.resolution.total);
     }
     if (t.items && t.items.length) s += ' · <span class="t-item">used ' + itemsText(t.items) + '</span>';
-    if (!short && t.reason) s += '<span class="why">“' + t.reason + '”</span>';
+    if (!short && t.reason) s += ' <span class="why">“' + t.reason + '”</span>';
     return s;
   }
 
@@ -1650,174 +1826,50 @@ button.item.active .ico, button.item.active b { color: #241400; }
     return (ch * 100).toFixed(ch < 0.1 && ch > 0 ? 1 : 0) + '%';
   }
 
-  function renderCenter() {
-    const p = match.player;
-    const tray = $('tray');
-    const status = $('status');
-    const sel = $('selinfo');
-    const actions = $('actions');
-    const risk = $('risk');
-
-    // Status line
-    if (targeting) {
-      const t = ITEM[targeting];
-      const what = t.target === 'ownDie' ? 'Click one of your dice' : t.target === 'oppDie' ? "Click one of the opponent's dice to copy" : "Click a hand on the opponent's pad to copy";
-      status.innerHTML = '<b>' + t.icon + ' ' + t.name + ':</b> ' + what + '. <span class="lock">Esc to cancel.</span>';
-    } else if (phase === 'choose') {
-      status.innerHTML = '<b>Your move.</b> Roll ' + p.available + ' dice to build thrust, or launch your pad. <span class="lock">Opponent has locked in their move.</span>';
-    } else if (phase === 'select') {
-      status.innerHTML = '<b>Select one or more scoring hands</b> to cache on your pad, then confirm. Items can change your dice first.';
-    } else if (phase === 'farkled') {
-      status.innerHTML = hasRescue()
-        ? '<b style="color:var(--bad)">You farkled</b>, but you can try a consumable to make a scoring hand. Or accept the farkle.'
-        : '<b>No scoring hand.</b> Your pad is destroyed.';
-    } else if (phase === 'reveal') {
-      status.innerHTML = 'Revealing round…';
-    } else {
-      status.innerHTML = '<b>Match over.</b>';
-    }
-
-    // Dice tray
-    const pickOwn = targeting && ITEM[targeting].target === 'ownDie';
-    let dice = '';
-    if (phase === 'select' || phase === 'farkled') {
-      p.dice.forEach(function (v, i) {
-        const cls = 'die' + (phase === 'select' || pickOwn ? ' clickable' : ' dead') + (selected.indexOf(i) >= 0 ? ' sel' : '') +
-          (rolledFresh && !p.bonus[i] ? ' rolling' : '') + (p.bonus[i] ? ' bonus' : '') + (pickOwn ? ' target' : '') + (i === changedDie ? ' changed' : '');
-        dice += '<button class="' + cls + '" data-i="' + i + '" style="animation-delay:' + (i * 40) + 'ms" aria-label="Die ' + (i + 1) + ': ' + v + '">' + v + '</button>';
-      });
-    } else {
-      for (let i = 0; i < p.available; i++) dice += '<div class="die blank">?</div>';
-      if (!p.available) dice = '<div class="hint" style="color:var(--muted);align-self:center">No dice left. Launch!</div>';
-    }
-    if (phase === 'farkled') dice += '<div class="farkle-banner" style="flex-basis:100%">FARKLE</div>';
-    tray.innerHTML = dice;
-    tray.querySelectorAll('.die[data-i]').forEach(function (b) {
-      b.addEventListener('click', function () { toggleDie(+b.dataset.i); });
-    });
-
-    renderOppTray();
-
-    // Selection info
-    if (phase === 'select') {
-      if (!selected.length) {
-        sel.innerHTML = '<span class="hint">Click dice (or press 1–' + p.dice.length + ') to select a hand.' + (p.bonus.some(Boolean) ? ' Copied dice (blue) are free: they don’t use up your live dice.' : '') + '</span>';
-      } else {
-        const hands = currentSelection();
-        if (!hands) {
-          sel.innerHTML = '<span class="invalid">Not a valid hand: every selected die must be part of a scoring hand.</span>';
-        } else {
-          const left = p.available - match.liveCount(p, selected);
-          sel.innerHTML = hands.map(function (h) {
-            return '<span class="hand">' + h.label + ' · ' + cmHtml(h.chips, h.mult) + '</span>';
-          }).join('') +
-            '<div class="hint">' + (left === 0 && cfg.hotDice ? '<b style="color:var(--accent)">Hot dice!</b> All six dice come back.' : left + ' dice left for the next roll') + '</div>';
-        }
-      }
-    } else if (phase === 'farkled') {
-      sel.innerHTML = '<span class="invalid">Accepting the farkle destroys your pad of ' + p.pad.length + ' hand' + (p.pad.length === 1 ? '' : 's') + '.</span>';
-    } else {
-      sel.innerHTML = '';
-    }
-
-    // Buttons
-    let a = '';
-    if (phase === 'choose') {
-      a += '<button class="primary" id="a-roll"' + (p.available ? '' : ' disabled') + '>Roll ' + p.available + ' dice<kbd>R</kbd></button>';
-      a += '<button class="danger" id="a-launch"' + (p.pad.length ? '' : ' disabled') + '>Launch pad<kbd>L</kbd></button>';
-    } else if (phase === 'select') {
-      a += '<button class="primary" id="a-cache"' + (currentSelection() ? '' : ' disabled') + '>Cache & end turn<kbd>Enter</kbd></button>';
-    } else if (phase === 'farkled') {
-      a += '<button class="danger" id="a-fcont">' + (hasRescue() ? 'Accept farkle (lose pad)' : 'End turn') + '<kbd>Enter</kbd></button>';
-    } else if (phase === 'over') {
-      a += '<button class="primary" id="a-again">Play again</button>';
-    }
-    actions.innerHTML = a;
-    bind('a-roll', onRoll);
-    bind('a-launch', onLaunch);
-    bind('a-cache', onCache);
-    bind('a-fcont', onFarkleContinue);
-    bind('a-again', continueRun);
-
-    // Farkle risk readout
-    if (cfg.showFarkleRisk && phase === 'choose' && p.available) {
-      risk.innerHTML = 'Farkle chance on a ' + p.available + '-die roll: <b>' + pctText(OF.farkleChance(p.available)) + '</b>';
-    } else if (cfg.showFarkleRisk && phase === 'select' && selected.length && currentSelection()) {
-      let left = p.available - match.liveCount(p, selected);
-      if (left === 0 && cfg.hotDice) left = 6;
-      risk.innerHTML = left ? 'Next roll would be ' + left + ' dice: <b>' + pctText(OF.farkleChance(left)) + '</b> farkle chance' : 'No dice left after this: you will have to launch.';
-    } else risk.innerHTML = '';
-  }
-
-  /** The opponent's roll for this round, shown once both ships have rolled. */
-  function renderOppTray() {
-    const el = $('opptray');
-    const ai = match.ai;
-    const pick = targeting === 'copyDie';
-    let body = '';
-    if (phase === 'choose') {
-      body = '<span class="hint">Their move is locked in. Their dice appear when you roll.</span>';
-    } else if (phase === 'select' || phase === 'farkled') {
-      if (ai.rolled) {
-        body = ai.rolled.map(function (v, j) {
-          return '<button class="die mini' + (pick ? ' clickable target' : '') + (rolledFresh ? ' rolling' : '') + '" data-j="' + j + '"' + (pick ? '' : ' tabindex="-1"') + '>' + v + '</button>';
-        }).join('');
-        if (!OF.hasScoring(ai.rolled)) body += '<span class="hint" style="align-self:center">No scoring dice… unless they use an item.</span>';
-      } else {
-        body = '<span class="hint">They chose to <b>launch</b> this round, so they have no roll.</span>';
-      }
-    } else {
-      body = '<span class="hint">—</span>';
-    }
-    el.innerHTML = '<div class="opplabel">Opponent’s roll</div><div class="oppdice">' + body + '</div>';
-    if (pick) {
-      el.querySelectorAll('.die[data-j]').forEach(function (b) {
-        b.addEventListener('click', function () { applyItem(+b.dataset.j); });
-      });
-    }
-  }
-
   function bind(id, fn) {
     const el = $(id);
     if (el) el.addEventListener('click', fn);
   }
 
-  function renderValues() {
-    $('mode-tag').textContent = cfg.scoringMode === 'pooled' ? 'pooled scoring' : 'per-hand scoring';
+  /** Hand values, power-ups and gauge tiers, in a dialog. */
+  function showHandValues() {
     let rows = '<tr><th>Hand</th><th>Dice</th><th class="num">Base</th><th class="num">With power-ups</th></tr>';
     OF.HAND_DEFS.forEach(function (h) {
       const base = cfg.hands[h.id];
       const v = OF.handValue(h.id, cfg);
-      rows += '<tr><td>' + h.name + '</td><td style="color:var(--muted)">' + OF.HAND_DICE_TEXT[h.id] + '</td>' +
+      rows += '<tr><td>' + h.name + '</td><td class="muted">' + OF.HAND_DICE_TEXT[h.id] + '</td>' +
         '<td class="num">' + cmHtml(base.chips, base.mult) + '</td>' +
         '<td class="num">' + cmHtml(v.chips, v.mult) + (v.boosts.length ? '<br><span class="boost">' + v.boosts.join(', ') + '</span>' : '') + '</td></tr>';
     });
-    $('values').innerHTML = rows;
-    $('formula').innerHTML = cfg.scoringMode === 'pooled'
-      ? 'At launch the pad resolves as <b>(total chips) × (total mult)</b> across every cached hand. Longer burns grow faster than linearly.'
-      : 'At launch each cached hand resolves as its own <b>chips × mult</b>, and the results are added.';
-
     const p = cfg.powerups;
-    $('powerups').innerHTML =
-      '<div class="pu' + (p.single.enabled ? '' : ' off') + '"><span>⚡ Single booster</span><span>Singles: +' + p.single.chips + ' chips</span></div>' +
-      '<div class="pu' + (p.run.enabled ? '' : ' off') + '"><span>🌀 Run booster</span><span>Small/medium straights: +' + p.run.mult + ' mult</span></div>' +
-      '<div class="pu' + (p.set.enabled ? '' : ' off') + '"><span>💎 Set booster</span><span>Of-a-kinds, two pair, full house, three pairs, two triplets: ×' + p.set.xmult + ' mult</span></div>';
-
     const th = OF.gaugeThresholds(cfg);
-    const names = [];
+    const tiers = [];
     for (let t = 1; t <= cfg.gaugeTiers; t++) {
       const lo = t === 1 ? 0 : th[t - 2];
       const hi = t - 1 < th.length ? th[t - 1] : null;
-      const nm = OF.gaugeTier(t === 1 ? 0 : lo, 1, cfg).name;
-      names.push('<b style="color:var(--text)">' + nm + '</b> ' + (hi === null ? fmt(lo) + '+' : fmt(lo) + '–' + fmt(hi)));
+      tiers.push('<b>' + OF.gaugeTier(t === 1 ? 0 : lo, 1, cfg).name + '</b> ' + (hi === null ? fmt(lo) + '+' : fmt(lo) + '–' + fmt(hi)));
     }
-    $('tiers').innerHTML = names.join(' · ') + '<br>The gauge shows a tier, never the exact launch total.';
+    openModal(
+      '<h3>Hand values <span class="muted" style="font-size:13px;font-weight:400">' + (cfg.scoringMode === 'pooled' ? 'pooled scoring' : 'per-hand scoring') + '</span></h3>' +
+      '<table class="values">' + rows + '</table>' +
+      '<p class="formula">' + (cfg.scoringMode === 'pooled'
+        ? 'At launch the pad resolves as <b>(total chips) × (total mult)</b> across every cached hand. Longer burns grow faster than linearly.'
+        : 'At launch each cached hand resolves as its own <b>chips × mult</b>, and the results are added.') + '</p>' +
+      '<h4>Power-ups <span class="muted" style="font-weight:400">same on both ships</span></h4><div class="powerups">' +
+      '<div class="pu' + (p.single.enabled ? '' : ' off') + '"><span>⚡ Single booster</span><span>Singles: +' + p.single.chips + ' chips</span></div>' +
+      '<div class="pu' + (p.run.enabled ? '' : ' off') + '"><span>🌀 Run booster</span><span>Small/medium straights: +' + p.run.mult + ' mult</span></div>' +
+      '<div class="pu' + (p.set.enabled ? '' : ' off') + '"><span>💎 Set booster</span><span>Of-a-kinds, two pair, full house, three pairs, two triplets: ×' + p.set.xmult + ' mult</span></div></div>' +
+      '<h4>Potential Energy tiers (level ' + level + ')</h4><p class="formula">' + tiers.join(' · ') + '<br>The gauge shows a tier, never the exact launch total.</p>' +
+      '<div class="foot"><button class="primary" id="hv-close">Close<kbd>Esc</kbd></button></div>',
+      closeModal
+    );
+    bind('hv-close', closeModal);
   }
 
-  function renderLog() {
-    $('log').innerHTML = roundLog.map(function (r) {
+  function roundLogHtml() {
+    return roundLog.map(function (r) {
       return '<div><span class="r">R' + r.round + '</span> You: ' + describeTurn(r.player, true) + ' &nbsp;|&nbsp; AI: ' + describeTurn(r.ai, true) + '</div>';
-    }).join('') || '<div style="color:var(--muted)">Nothing yet.</div>';
+    }).reverse().join('') || '<div class="muted">Nothing yet.</div>';
   }
 
   // ---------------------------------------------------------------------------
@@ -2045,7 +2097,8 @@ button.item.active .ico, button.item.active b { color: #241400; }
     const pass = function (ok, text) { return ok === null ? '' : '<div class="' + (ok ? 'pass' : 'fail') + '">' + (ok ? '✓ ' : '✗ ') + text + '</div>'; };
     const stat = function (v, k, extra) { return '<div class="stat"><div class="v">' + v + '</div><div class="k">' + k + '</div>' + (extra || '') + '</div>'; };
     openModal(
-      '<h3>Playtest log</h3>' +
+      '<h3>Round log <span class="muted" style="font-size:13px;font-weight:400">level ' + level + '</span></h3><div class="log">' + roundLogHtml() + '</div>' +
+      '<h3 style="margin-top:16px">Playtest log</h3>' +
       '<div class="form" style="margin-bottom:12px"><label>Tester name (saved with each match)<input type="text" id="tester" value="' + escapeHtml(tester()) + '" style="background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px;font:inherit"></label></div>' +
       '<div class="stats">' +
       stat(s.matches + ' <small style="font-size:13px;color:var(--muted)">(' + s.wins + ' won)</small>', 'Completed matches on this browser') +
@@ -2225,6 +2278,7 @@ button.item.active .ico, button.item.active b { color: #241400; }
   bind('btn-rules', showRules);
   bind('btn-tuning', showTuning);
   bind('btn-stats', showStats);
+  bind('btn-values', showHandValues);
   bind('btn-restart', function () {
     if ((level === 1 && match.round <= 1) || confirm('Start a new run at level 1? This level is logged as abandoned.')) newRun();
   });

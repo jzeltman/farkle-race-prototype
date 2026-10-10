@@ -9,6 +9,15 @@ No build step and no dependencies.
 - **Simplest:** double-click `orbital-farkle.html`. It is a single self-contained file and easy to send to testers. `index.html` is the same game split into separate files for editing.
 - **Localhost:** `python3 -m http.server 8000`, then open <http://localhost:8000>.
 
+## Layout
+
+- **Center:** the opponent's board is at the top. It has their power-ups and items, their dice for this round, their velocity (banked score against the target) and their last turn. Your board is at the bottom, with your velocity, Roll and Launch, your dice, and your power-ups and items. Status, your current selection and the farkle chance sit between the two boards.
+- **Left:** the hands each ship has cached this turn, with each hand's chips × mult, and a Potential Energy gauge. The gauge is the coarse pending-thrust tier; the pad total stays hidden.
+- **Right:** a vertical race track from 0 to the target velocity, with your rocket (blue) and the opponent's (red).
+- **Header buttons:** Hand Values (hand table, power-ups, gauge tiers), Rules, Tuning, Log (round log and playtest stats), and New run.
+
+The rocket art is in `assets/` and is embedded in `style.css` as data URIs, so the single-file build needs no extra files.
+
 ## What's in Phase 1
 
 - Six numbered dice. Click a die (or press `1`–`6`) to select it. A valid selection shows each hand's name and its chips × mult.
@@ -66,7 +75,7 @@ Lone pairs are out of the hand set because they made rolls of 5 or 6 dice imposs
 
 ## Files
 
-- `index.html`, `style.css`: the page
+- `index.html`, `style.css`: the page (`assets/`: rocket images, also inlined in the CSS)
 - `engine.js`: rules, scoring, gauge, match flow and the AI (no DOM)
 - `game.js`: UI, reveal animation, logging and tuning
 - `sim.js`: headless AI-vs-AI balance sim: `node sim.js [matches] [target] [pooled|perHand] [noitems]`
@@ -75,7 +84,7 @@ In the browser console, `orbitalFarkle.match` gives you the live match for debug
 
 ## Collecting playtest data
 
-Logs are stored in each tester's browser (localStorage). After a session, open **Playtest log**, enter the tester's name and click **Export burns CSV** or **Export JSON**.
+Logs are stored in each tester's browser (localStorage). After a session, open **Log**, enter the tester's name and click **Export burns CSV** or **Export JSON**.
 
 `orbital-farkle.html` is built from the source files. After editing them, rebuild it with:
 

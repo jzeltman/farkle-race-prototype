@@ -10,49 +10,27 @@
   <header>
     <h1>🚀 Orbital Farkle</h1>
     <div class="meta">
-      <span>Level <b id="level">1</b></span>
       <span>Round <b id="round">1</b></span>
-      <span>Orbit at <b id="target">0</b></span>
-      <span id="overtime" hidden><b style="color:var(--accent)">OVERTIME</b></span>
+      <span>Level <b id="level">1</b></span>
+      <span id="overtime" hidden><b class="accent">OVERTIME</b></span>
     </div>
     <div class="spacer"></div>
     <div class="tools">
-      <button class="ghost" id="btn-rules">Rules</button>
-      <button class="ghost" id="btn-tuning">Tuning</button>
-      <button class="ghost" id="btn-stats">Playtest log</button>
-      <button id="btn-restart">New run</button>
+      <button class="hbtn strong" id="btn-values">Hand Values</button>
+      <button class="hbtn" id="btn-rules">Rules</button>
+      <button class="hbtn" id="btn-tuning">Tuning</button>
+      <button class="hbtn" id="btn-stats">Log</button>
+      <button class="hbtn ghost" id="btn-restart" title="Start a new run at level 1">New run</button>
     </div>
   </header>
 
-  <main>
-    <section class="panel ship" id="side-player"></section>
-
-    <section id="center">
-      <div class="status" id="status"></div>
-      <div class="tray" id="tray"></div>
-      <div class="selinfo" id="selinfo"></div>
-      <div class="actions" id="actions"></div>
-      <div class="risk" id="risk"></div>
-      <div class="opptray" id="opptray"></div>
-    </section>
-
-    <section class="panel ship" id="side-ai"></section>
-
-    <div class="bottom">
-      <section class="panel">
-        <h2>Hand values <span class="tag" id="mode-tag"></span></h2>
-        <table class="values" id="values"></table>
-        <div class="formula" id="formula"></div>
-      </section>
-      <section class="panel">
-        <h2>Power-ups <span class="tag">same loadout on both ships</span></h2>
-        <div class="powerups" id="powerups"></div>
-        <h2 style="margin-top:14px">Thrust gauge tiers</h2>
-        <div class="formula" id="tiers" style="margin-top:0"></div>
-        <h2 style="margin-top:14px">Round log</h2>
-        <div class="log" id="log"></div>
-      </section>
-    </div>
+  <main class="board">
+    <section class="handsbox opp" id="opp-hands"></section>
+    <section class="ship-board opp" id="opp-board"></section>
+    <section class="middle" id="middle"></section>
+    <section class="handsbox me" id="my-hands"></section>
+    <section class="ship-board me" id="my-board"></section>
+    <aside class="track" id="track"></aside>
   </main>
 
   <div class="overlay" id="overlay" hidden>
